@@ -274,6 +274,21 @@ class DatabaseManager:
                     return True
         return False
 
+    def delete_task(self, task_id: int) -> bool:
+        """Delete task by ID."""
+        if self.use_mongodb:
+            result = self.db["tasks"].delete_one({"id": task_id})
+            return result.deleted_count > 0
+        else:
+            local = self._read_local_db()
+            tasks = local.get("tasks", [])
+            initial_count = len(tasks)
+            local["tasks"] = [t for t in tasks if t["id"] != task_id]
+            if len(local["tasks"]) < initial_count:
+                self._write_local_db(local)
+                return True
+        return False
+
 
 # Singleton instance
 db_manager = DatabaseManager()

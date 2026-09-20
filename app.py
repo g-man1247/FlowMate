@@ -2,12 +2,13 @@ import os
 import json
 import time
 from pathlib import Path
-from flask import Flask, render_template, jsonify, request, session
+from flask import Flask, render_template, jsonify, request, session, Response
 from flask_cors import CORS
 
 from config.settings import SESSIONS_DIR, DISCLAIMER_TEXT, DEFAULT_OLLAMA_MODEL
 from sensors.simulated import SimulatedHeartRateSensor
 from sensors.ble_esp32 import ESP32BluetoothHeartRateSensor
+from sensors.camera import camera_manager
 from sensors.health import HardwareHealthChecker
 from ai.ollama_client import OllamaClient
 from core.assistant import StudyAssistant
@@ -162,6 +163,37 @@ def hardware_diagnostic():
         sensor_mode=state.sensor_mode
     )
     return jsonify({"success": True, "diagnostic": diag})
+
+
+# -----------------------------------------------------------------------------
+# CAMERA FEED & VISION TELEMETRY ENDPOINTS
+# -----------------------------------------------------------------------------
+
+@app.route("/api/camera/status", methods=["GET"])
+def camera_status():
+    return jsonify({"success": True, "camera": camera_manager.get_status()})
+
+
+@app.route("/api/camera/toggle", methods=["POST"])
+def camera_toggle():
+    data = request.json or {}
+    enable = data.get("enable", not camera_manager.is_active)
+    if enable:
+        success = camera_manager.start()
+    else:
+        camera_manager.stop()
+        success = True
+    return jsonify({"success": success, "camera": camera_manager.get_status()})
+
+
+@app.route("/api/camera/stream")
+def camera_stream():
+    if not camera_manager.is_active:
+        camera_manager.start()
+    return Response(
+        camera_manager.generate_mjpeg_frames(),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -327,7 +359,7 @@ def ask_ai_coach():
     user = db_manager.get_user_by_roll_no(roll_no) or {"name": "Arun"}
     
     if prompt_text:
-        res = state.ollama_client.generate_response(
+        res = state.ollama_client.generate_coaching(
             prompt=f"You are FlowMate AI Focus Coach. Provide concise, encouraging academic advice for student {user['name']} studying {state.current_subject}. Question: {prompt_text}"
         )
     else:
@@ -361,8 +393,12 @@ def update_study_task():
         title = data.get("title", "Study Session")
         duration = int(data.get("duration", 30))
         db_manager.add_task(roll_no, subject, title, duration)
+    elif action == "delete":
+        if task_id:
+            db_manager.delete_task(int(task_id))
     else:
-        db_manager.update_task_status(task_id, action)
+        if task_id:
+            db_manager.update_task_status(int(task_id), action)
         
     tasks = db_manager.get_tasks(roll_no)
     return jsonify({"success": True, "tasks": tasks})
@@ -530,4 +566,5 @@ if __name__ == "__main__":
     print("=" * 70)
     print("Running web interface at: http://127.0.0.1:5000")
     print("=" * 70)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
+

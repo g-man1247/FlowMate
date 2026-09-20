@@ -7,6 +7,9 @@ from config.settings import OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
 from ai.prompts import get_combined_system_prompt
 
 
+import socket
+import urllib.parse
+
 class OllamaClient:
     """
     Client for communicating with the local Ollama LLM service.
@@ -20,9 +23,14 @@ class OllamaClient:
     def check_connection(self) -> bool:
         """Check if the local Ollama server is running."""
         try:
-            req = urllib.request.Request(f"{self.base_url}/api/tags", method="GET")
-            with urllib.request.urlopen(req, timeout=3) as resp:
-                return resp.status == 200
+            parsed = urllib.parse.urlparse(self.base_url)
+            host = parsed.hostname or "127.0.0.1"
+            port = parsed.port or 11434
+            
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(0.5)
+                res = sock.connect_ex((host, port))
+                return res == 0
         except Exception:
             return False
 
@@ -40,6 +48,13 @@ class OllamaClient:
         """
         if system_prompt is None:
             system_prompt = get_combined_system_prompt()
+
+        if not self.check_connection():
+            return {
+                "success": False,
+                "error": f"Could not connect to local Ollama server at {self.base_url}. Please ensure 'ollama serve' is running and model '{self.model}' is pulled.",
+                "model": self.model
+            }
 
         url = f"{self.base_url}/api/generate"
         payload = {
