@@ -3,6 +3,7 @@ System prompts and message templates for the AI Study-Focus Assistant.
 Strictly grounded to prevent LLM hallucinations and enforce non-medical guardrails.
 """
 
+from pathlib import Path
 from typing import List, Optional
 from core.statistics import SessionStatistics
 
@@ -32,6 +33,32 @@ STRICT ACCURACY & RELIABILITY CONSTRAINTS:
    - Example acceptable sentence: "The simulated readings show a decreasing trend, but the available data does not establish the reason for that change."
 9. SIMULATED SENSOR METRICS: Heart-rate readings supplied to you are SIMULATED and are used purely as general engagement markers for study session pacing.
 """
+
+
+def load_project_context(relative_path: str = "ai/project_context.md") -> str:
+    """
+    Safely load project context markdown from a project-root-safe path.
+    Gracefully returns an empty string if the file is missing or unreadable.
+    """
+    try:
+        project_root = Path(__file__).resolve().parent.parent
+        target_path = project_root / relative_path
+        if target_path.is_file():
+            return target_path.read_text(encoding="utf-8").strip()
+    except Exception:
+        pass
+    return ""
+
+
+def get_combined_system_prompt() -> str:
+    """
+    Get the full system prompt combining SYSTEM_PROMPT_STUDY_COACH
+    with project knowledge from ai/project_context.md if available.
+    """
+    context = load_project_context()
+    if context:
+        return f"{SYSTEM_PROMPT_STUDY_COACH}\n\nADDITIONAL PROJECT KNOWLEDGE & CONTEXT:\n{context}"
+    return SYSTEM_PROMPT_STUDY_COACH
 
 
 def build_coaching_prompt(

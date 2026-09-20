@@ -1,9 +1,10 @@
+"""AI interaction package for Ollama LLM client and system prompts."""
 import json
 import urllib.request
 import urllib.error
 from typing import Dict, Any, Optional
 from config.settings import OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
-from ai.prompts import SYSTEM_PROMPT_STUDY_COACH
+from ai.prompts import get_combined_system_prompt
 
 
 class OllamaClient:
@@ -28,14 +29,18 @@ class OllamaClient:
     def generate_coaching(
         self,
         prompt: str,
-        system_prompt: str = SYSTEM_PROMPT_STUDY_COACH,
+        system_prompt: Optional[str] = None,
         stream: bool = False
     ) -> Dict[str, Any]:
         """
         Send a generation request to Ollama using default model 'llama3.2:3b'.
+        Uses combined system prompt (including ai/project_context.md) if system_prompt is None.
         
         Returns a dict containing success flag, text response, or error message.
         """
+        if system_prompt is None:
+            system_prompt = get_combined_system_prompt()
+
         url = f"{self.base_url}/api/generate"
         payload = {
             "model": self.model,
