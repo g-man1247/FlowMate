@@ -1,0 +1,80 @@
+{
+  "users": [
+    {
+      "name": "Arun",
+      "roll_no": "2026101",
+      "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+      "role": "Student",
+      "streak_days": 7,
+      "goal_minutes": 180,
+      "completed_minutes": 105,
+      "created_at": 1789905079.1105094
+    },
+    {
+      "name": "Priya S.",
+      "roll_no": "2026102",
+      "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+      "role": "Student",
+      "streak_days": 5,
+      "goal_minutes": 150,
+      "completed_minutes": 130,
+      "created_at": 1789905079.1105633
+    },
+    {
+      "name": "Karthik M.",
+      "roll_no": "2026103",
+      "password": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+      "role": "Student",
+      "streak_days": 3,
+      "goal_minutes": 120,
+      "completed_minutes": 45,
+      "created_at": 1789905079.11057
+    },
+    {
+      "name": "Prof. Sundar",
+      "roll_no": "FAC2026",
+      "password": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "role": "Faculty",
+      "streak_days": 30,
+      "goal_minutes": 0,
+      "completed_minutes": 0,
+      "created_at": 1789905079.1105764
+    }
+  ],
+  "tasks": [
+    {
+      "id": 1789905351025,
+      "roll_no": "2026101",
+      "subject": "Mathematics",
+      "title": "Calculus - Integration",
+      "duration_minutes": 45,
+      "completed_minutes": 0,
+      "status": "NOT_STARTED",
+      "progress_pct": 0,
+      "created_at": 1789905351.0251472
+    },
+    {
+      "id": 1789905351035,
+      "roll_no": "2026101",
+      "subject": "Physics",
+      "title": "Electromagnetism & Waves",
+      "duration_minutes": 30,
+      "completed_minutes": 0,
+      "status": "NOT_STARTED",
+      "progress_pct": 0,
+      "created_at": 1789905351.03521
+    },
+    {
+      "id": 1789905351040,
+      "roll_no": "2026101",
+      "subject": "Programming",
+      "title": "Python Data Structures",
+      "duration_minutes": 60,
+      "completed_minutes": 0,
+      "status": "NOT_STARTED",
+      "progress_pct": 0,
+      "created_at": 1789905351.040673
+    }
+  ],
+  "notifications": []
+}

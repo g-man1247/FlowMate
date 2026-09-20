@@ -1,3 +1,5 @@
 # AI Study-Focus Assistant Dependencies
 ollama>=0.3.0
 pydantic>=2.0.0
+flask>=3.0.0
+flask-cors>=4.0.0

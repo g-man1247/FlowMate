@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowMate | AI Study-Focus & IoT Telemetry Assistant</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="dark-theme">
+
+    <!-- Top Navigation Header -->
+    <header class="top-header">
+        <div class="header-left">
+            <button id="mobile-menu-toggle" class="icon-btn mobile-only" aria-label="Toggle navigation menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <div class="brand-logo">
+                <div class="logo-icon"><i class="fa-solid fa-brain-circuit"></i></div>
+                <div class="logo-text">
+                    <span class="brand-name">FlowMate</span>
+                    <span class="brand-tagline">AI STUDY-FOCUS ASSISTANT</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="header-center">
+            <div class="disclaimer-chip" id="disclaimer-chip">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Academic Focus Companion • Non-Medical Device</span>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <button class="btn btn-sm btn-outline" onclick="runHardwareDiagnostic()" title="Check Hardware Health & Handshake">
+                <i class="fa-solid fa-microchip text-cyan"></i> Hardware Diagnostic
+            </button>
+
+            <div class="sensor-pill-badge" id="header-sensor-badge">
+                <span class="pulse-dot"></span>
+                <span id="header-sensor-text">Sensor: Simulation Mode</span>
+            </div>
+
+            <button class="icon-btn nav-link-trigger" data-tab="notifications" id="header-notif-btn" title="Notifications">
+                <i class="fa-solid fa-bell"></i>
+                <span class="notif-badge" id="notif-count-badge">3</span>
+            </button>
+
+            <div class="user-profile-chip" onclick="showAuthModal()" style="cursor: pointer;" title="Click to Sign In / Switch User">
+                <div class="avatar" id="header-user-avatar">A</div>
+                <div class="user-info">
+                    <span class="user-name" id="header-user-name">Arun</span>
+                    <span class="user-role" id="header-user-roll">Roll: 2026101</span>
+                </div>
+                <i class="fa-solid fa-angle-down text-dim"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- App Layout Container -->
+    <div class="app-layout">
+
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="app-sidebar">
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">STUDENT PORTAL</div>
+                <button class="nav-item active" data-tab="dashboard">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="plan">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>My Study Plan</span>
+                </button>
+                <button class="nav-item" data-tab="session">
+                    <i class="fa-solid fa-stopwatch"></i>
+                    <span>Focus Session</span>
+                </button>
+                <button class="nav-item" data-tab="monitor">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                    <span>Activity Monitor</span>
+                </button>
+                <button class="nav-item" data-tab="coach">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>AI Study Coach</span>
+                </button>
+                <button class="nav-item" data-tab="progress">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Progress</span>
+                </button>
+                <button class="nav-item" data-tab="history">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <span>Session History</span>
+                </button>
+
+                <div class="nav-section-title">MENTORING & SYSTEM</div>
+                <button class="nav-item" data-tab="notifications">
+                    <i class="fa-solid fa-bell"></i>
+                    <span>Notifications</span>
+                </button>
+                <button class="nav-item" data-tab="faculty">
+                    <i class="fa-solid fa-chalkboard-user"></i>
+                    <span>Faculty / Mentor</span>
+                </button>
+                <button class="nav-item" data-tab="settings">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="ollama-status-card">
+                    <div class="status-indicator online"></div>
+                    <div class="ollama-info">
+                        <span class="ollama-label">Ollama LLM Backend</span>
+                        <span class="ollama-model" id="ollama-model-name">llama3.2:3b</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Workspace Area -->
+        <main class="main-content">
+
+            <!-- Non-Medical Disclaimer Banner Alert -->
+            <div class="disclaimer-alert-banner">
+                <i class="fa-solid fa-circle-info"></i>
+                <div class="banner-text">
+                    <strong>Academic Productivity Notice:</strong> FlowMate is an AI-powered study companion designed purely for focus pacing and academic self-regulation. It is NOT a medical device and does NOT diagnose stress or health conditions.
+                </div>
+            </div>
+
+            <!-- TAB 1: STUDENT DASHBOARD -->
+            <section id="tab-dashboard" class="tab-page active">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Good afternoon, Arun 👋</h1>
+                        <p class="page-subtitle">Track your focus, pacing, and AI study recommendations for today.</p>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="btn btn-primary" onclick="switchTab('session')">
+                            <i class="fa-solid fa-play"></i> Start Focus Session
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Metrics Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card glass-card">
+                        <div class="metric-header">
+                            <span class="metric-label">TODAY'S GOAL</span>
+                            <i class="fa-solid fa-bullseye metric-icon text-indigo"></i>
+                        </div>
+                        <div class="metric-value">3h 00m</div>
+                        <div class="metric-subtext"><i class="fa-solid fa-check text-emerald"></i> Target set for Mathematics & Physics</div>
+                    </div>
+
+                    <div class="metric-card glass-card">
+                        <div class="metric-header">
+                            <span class="metric-label">COMPLETED</span>
+                            <i class="fa-solid fa-clock metric-icon text-emerald"></i>
+                        </div>
+                        <div class="metric-value" id="dash-completed-time">1h 45m</div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" style="width: 58%;"></div>
+                        </div>
+                        <div class="metric-subtext">58% of daily target reached</div>
+                    </div>
+
+                    <div class="metric-card glass-card">
+                        <div class="metric-header">
+                            <span class="metric-label">FOCUS SCORE</span>
+                            <i class="fa-solid fa-gauge-high metric-icon text-cyan"></i>
+                        </div>
+                        <div class="metric-value" id="dash-focus-score">84%</div>
+                        <div class="metric-subtext"><span class="badge badge-success">High Consistency</span> Software Inferred</div>
+                    </div>
+
+                    <div class="metric-card glass-card">
+                        <div class="metric-header">
+                            <span class="metric-label">STUDY STREAK</span>
+                            <i class="fa-solid fa-fire metric-icon text-amber"></i>
+                        </div>
+                        <div class="metric-value">7 Days</div>
+                        <div class="metric-subtext">🔥 2 days away from 9-day milestone</div>
+                    </div>
+                </div>
+
+                <!-- Dashboard 2-Column Grid -->
+                <div class="content-grid-2col">
+                    <!-- Active Focus Preview Card -->
+                    <div class="glass-card flex-col">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-stopwatch text-indigo"></i> Live Focus Session</h3>
+                            <span class="badge badge-primary" id="dash-session-status-badge">ACTIVE SESSION</span>
+                        </div>
+
+                        <div class="radial-timer-container">
+                            <div class="radial-timer-circle">
+                                <span class="timer-display" id="dash-timer-display">01:24:38</span>
+                                <span class="timer-subject" id="dash-subject-display">Mathematics</span>
+                                <span class="timer-task" id="dash-task-display">Calculus - Integration</span>
+                            </div>
+                        </div>
+
+                        <div class="status-indicator-pills">
+                            <div class="pill-indicator">
+                                <i class="fa-solid fa-microchip text-emerald"></i>
+                                <span id="dash-hw-status">Hardware Connected</span>
+                            </div>
+                            <div class="pill-indicator">
+                                <i class="fa-solid fa-bolt text-amber"></i>
+                                <span id="dash-act-status">Activity Detected</span>
+                            </div>
+                        </div>
+
+                        <div class="card-actions space-top">
+                            <button class="btn btn-secondary flex-1" onclick="togglePauseSession()">
+                                <i class="fa-solid fa-pause"></i> Pause
+                            </button>
+                            <button class="btn btn-danger flex-1" onclick="endSession()">
+                                <i class="fa-solid fa-stop"></i> End Session
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- AI Study Coach Quick Widget -->
+                    <div class="glass-card flex-col">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-robot text-purple"></i> AI Focus Coach Recommendation</h3>
+                            <button class="btn btn-sm btn-ghost" onclick="switchTab('coach')">Open Chat <i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+
+                        <div class="ai-coaching-box" id="dash-ai-coaching-content">
+                            <div class="ai-speech-bubble">
+                                <div class="ai-avatar"><i class="fa-solid fa-sparkles"></i></div>
+                                <div class="ai-text">
+                                    <p><strong>Great study flow detected on Calculus!</strong></p>
+                                    <p>You have completed 70% of today's integration target with steady pacing. Your simulated heart rate indicates optimal calm focus (~74 BPM).</p>
+                                    <div class="ai-suggestion-chip">
+                                        <i class="fa-solid fa-lightbulb"></i> <strong>Next Step:</strong> Practice 5 integration-by-parts problems.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hardware-quick-bar space-top">
+                            <div class="hw-item">
+                                <span class="hw-label">Sensor Source:</span>
+                                <span class="hw-val text-cyan" id="dash-sensor-mode">SIMULATION MODE</span>
+                            </div>
+                            <div class="hw-item">
+                                <span class="hw-label">Simulated Reading:</span>
+                                <span class="hw-val text-emerald" id="dash-live-bpm">74.2 BPM</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: MY STUDY PLAN -->
+            <section id="tab-plan" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Personalized Study Plan</h1>
+                        <p class="page-subtitle">Organize today's academic targets and leverage AI recommendations.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="showNewTaskModal()">
+                        <i class="fa-solid fa-plus"></i> Add New Task
+                    </button>
+                </div>
+
+                <!-- Subject Progress Grid -->
+                <div class="subject-progress-cards">
+                    <div class="subject-card glass-card">
+                        <div class="subject-card-header">
+                            <span class="subject-name"><i class="fa-solid fa-calculator text-indigo"></i> Mathematics</span>
+                            <span class="subject-pct">70%</span>
+                        </div>
+                        <div class="progress-bar-bg"><div class="progress-bar-fill bg-indigo" style="width: 70%;"></div></div>
+                        <div class="subject-subtext">32 of 45 minutes completed</div>
+                    </div>
+
+                    <div class="subject-card glass-card">
+                        <div class="subject-card-header">
+                            <span class="subject-name"><i class="fa-solid fa-atom text-cyan"></i> Physics</span>
+                            <span class="subject-pct">40%</span>
+                        </div>
+                        <div class="progress-bar-bg"><div class="progress-bar-fill bg-cyan" style="width: 40%;"></div></div>
+                        <div class="subject-subtext">12 of 30 minutes completed</div>
+                    </div>
+
+                    <div class="subject-card glass-card">
+                        <div class="subject-card-header">
+                            <span class="subject-name"><i class="fa-solid fa-code text-emerald"></i> Programming</span>
+                            <span class="subject-pct">0%</span>
+                        </div>
+                        <div class="progress-bar-bg"><div class="progress-bar-fill bg-emerald" style="width: 0%;"></div></div>
+                        <div class="subject-subtext">0 of 60 minutes completed</div>
+                    </div>
+
+                    <div class="subject-card glass-card">
+                        <div class="subject-card-header">
+                            <span class="subject-name"><i class="fa-solid fa-flask text-amber"></i> Chemistry</span>
+                            <span class="subject-pct">100%</span>
+                        </div>
+                        <div class="progress-bar-bg"><div class="progress-bar-fill bg-amber" style="width: 100%;"></div></div>
+                        <div class="subject-subtext">45 of 45 minutes completed</div>
+                    </div>
+                </div>
+
+                <!-- Task List Table -->
+                <div class="glass-card space-top">
+                    <div class="card-header">
+                        <h3>Today's Task Schedule</h3>
+                        <span class="badge badge-secondary" id="task-count-badge">4 Tasks Total</span>
+                    </div>
+
+                    <div class="task-list" id="task-list-container">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: FOCUS SESSION (LIVE) -->
+            <section id="tab-session" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Live Focus Session</h1>
+                        <p class="page-subtitle">Real-time focus pacing with continuous hardware & software telemetry.</p>
+                    </div>
+                    <div class="session-mode-chip">
+                        <i class="fa-solid fa-satellite-dish text-emerald"></i>
+                        <span id="session-telemetry-status">Telemetry Active</span>
+                    </div>
+                </div>
+
+                <div class="session-main-layout glass-card">
+                    <div class="session-hero-timer">
+                        <div class="hero-radial-ring">
+                            <div class="hero-timer-text" id="session-clock-display">01:24:38</div>
+                            <div class="hero-subject-tag" id="session-subject-tag">Mathematics</div>
+                            <div class="hero-task-tag" id="session-task-tag">Calculus - Integration</div>
+                        </div>
+                    </div>
+
+                    <div class="session-telemetry-grid">
+                        <div class="telemetry-pill glass-card">
+                            <span class="pill-title">Focus Status</span>
+                            <span class="pill-value text-emerald" id="session-focus-status">FOCUSED</span>
+                            <span class="pill-sub" id="session-confidence-sub">Software Confidence: 84%</span>
+                        </div>
+
+                        <div class="telemetry-pill glass-card">
+                            <span class="pill-title">Hardware Telemetry</span>
+                            <span class="pill-value text-cyan" id="session-bpm-val">74.5 BPM</span>
+                            <span class="pill-sub" id="session-device-sub">Simulated MAX30102</span>
+                        </div>
+
+                        <div class="telemetry-pill glass-card">
+                            <span class="pill-title">Activity State</span>
+                            <span class="pill-value text-amber" id="session-activity-state">Detected (Keyboard)</span>
+                            <span class="pill-sub">Input Signal Active</span>
+                        </div>
+                    </div>
+
+                    <div class="session-control-bar">
+                        <button class="btn btn-primary btn-lg" id="btn-start-session" onclick="startNewSession()">
+                            <i class="fa-solid fa-play"></i> START FOCUS SESSION
+                        </button>
+                        <button class="btn btn-secondary btn-lg" id="btn-pause-session" onclick="togglePauseSession()">
+                            <i class="fa-solid fa-pause"></i> PAUSE
+                        </button>
+                        <button class="btn btn-danger btn-lg" id="btn-end-session" onclick="endSession()">
+                            <i class="fa-solid fa-stop"></i> END SESSION
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: REAL-TIME ACTIVITY MONITOR -->
+            <section id="tab-monitor" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Real-Time Activity & Telemetry Monitor</h1>
+                        <p class="page-subtitle">Separate physical hardware measurements from software inferences and AI advice.</p>
+                    </div>
+                    <div class="mode-selector-group">
+                        <span class="mode-label">Sensor Mode:</span>
+                        <button class="btn btn-sm btn-outline active" onclick="setSensorMode('SIMULATION')">SIMULATION</button>
+                        <button class="btn btn-sm btn-outline" onclick="setSensorMode('HARDWARE')">HARDWARE (ESP32)</button>
+                        <button class="btn btn-sm btn-outline" onclick="setSensorMode('AUTO')">AUTO</button>
+                    </div>
+                </div>
+
+                <!-- Heart Rate Stream Chart Card -->
+                <div class="glass-card space-bottom">
+                    <div class="card-header">
+                        <div>
+                            <h3><i class="fa-solid fa-heart-pulse text-pink"></i> Heart Rate Stream (BPM)</h3>
+                            <span class="card-subtitle">Real-time hardware telemetry sample (Polls every 2 seconds)</span>
+                        </div>
+                        <div class="live-bpm-display">
+                            <span class="pulse-icon"><i class="fa-solid fa-heartbeat text-pinkbeat"></i></span>
+                            <span class="bpm-num" id="chart-live-bpm">74.2</span> <span class="bpm-unit">BPM</span>
+                        </div>
+                    </div>
+                    <div class="chart-container" style="height: 260px;">
+                        <canvas id="heartRateChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 2-Column Signal Separation Grid -->
+                <div class="content-grid-2col">
+                    <!-- Activity & Focus State Timeline Chart -->
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-wave-square text-cyan"></i> Software Focus & Activity Signals</h3>
+                        </div>
+                        <div class="chart-container" style="height: 220px;">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Signal Categorization Matrix -->
+                    <div class="glass-card flex-col">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-sitemap text-indigo"></i> Signal Classification Matrix</h3>
+                        </div>
+                        <div class="signal-matrix">
+                            <div class="matrix-row">
+                                <div class="matrix-type badge-raw">1. Hardware Measured</div>
+                                <div class="matrix-content">
+                                    <strong id="matrix-bpm">74.2 BPM</strong>
+                                    <span id="matrix-device">Source: Simulated MAX30102</span>
+                                </div>
+                            </div>
+
+                            <div class="matrix-row">
+                                <div class="matrix-type badge-inferred">2. Software Inferred</div>
+                                <div class="matrix-content">
+                                    <strong id="matrix-status">Status: FOCUSED (84% Confidence)</strong>
+                                    <span>Signal: Active Session + Stable Pacing</span>
+                                </div>
+                            </div>
+
+                            <div class="matrix-row">
+                                <div class="matrix-type badge-recommend">3. AI Recommended</div>
+                                <div class="matrix-content">
+                                    <strong>Coach Advice: Maintain calculus study flow</strong>
+                                    <span>Model: Ollama llama3.2:3b</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: AI STUDY COACH -->
+            <section id="tab-coach" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">AI Study Coach</h1>
+                        <p class="page-subtitle">Intelligent focus advice powered by local Ollama LLM (<span id="coach-model-tag">llama3.2:3b</span>).</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="requestMetricCoaching()">
+                        <i class="fa-solid fa-brain"></i> Analyze Session Metrics
+                    </button>
+                </div>
+
+                <div class="chat-wrapper glass-card">
+                    <!-- Quick Prompt Pills -->
+                    <div class="quick-prompts-bar">
+                        <span class="prompt-bar-label"><i class="fa-solid fa-bolt text-amber"></i> Quick Queries:</span>
+                        <button class="prompt-pill" onclick="sendQuickPrompt('What should I study next?')">What should I study next?</button>
+                        <button class="prompt-pill" onclick="sendQuickPrompt('Explain Calculus Integration by parts simply')">Explain Calculus Integration</button>
+                        <button class="prompt-pill" onclick="sendQuickPrompt('Give me a 15-minute physics revision plan')">Short revision plan</button>
+                        <button class="prompt-pill" onclick="sendQuickPrompt('Should I take a break now based on my pacing?')">Should I take a break?</button>
+                    </div>
+
+                    <!-- Chat Messages List -->
+                    <div class="chat-messages-container" id="chat-messages">
+                        <div class="chat-msg coach-msg">
+                            <div class="msg-avatar"><i class="fa-solid fa-robot"></i></div>
+                            <div class="msg-body">
+                                <div class="msg-header">
+                                    <span class="msg-author">FlowMate AI Coach</span>
+                                    <span class="msg-time">Just now</span>
+                                </div>
+                                <div class="msg-text">
+                                    Hello Arun! I'm your local AI Study Coach. I monitor your study session pacing and help you stay focused on your academic goals. How can I assist your study session today?
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input Bar -->
+                    <div class="chat-input-area">
+                        <input type="text" id="coach-user-input" class="form-input" placeholder="Ask your AI study coach a question or request advice..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                        <button class="btn btn-primary" onclick="sendChatMessage()">
+                            <i class="fa-solid fa-paper-plane"></i> Send
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 6: PROGRESS ANALYTICS -->
+            <section id="tab-progress" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Student Progress Analytics</h1>
+                        <p class="page-subtitle">Track long-term academic pacing, focus trends, and subject mastery.</p>
+                    </div>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-card glass-card">
+                        <span class="metric-label">WEEKLY STUDY HOURS</span>
+                        <div class="metric-value">21.9 hrs</div>
+                        <div class="metric-subtext text-emerald"><i class="fa-solid fa-arrow-trend-up"></i> +14% vs last week</div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <span class="metric-label">AVG FOCUS SCORE</span>
+                        <div class="metric-value">84%</div>
+                        <div class="metric-subtext text-cyan">Consistent high focus</div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <span class="metric-label">COMPLETED TASKS</span>
+                        <div class="metric-value">14</div>
+                        <div class="metric-subtext text-indigo">Across 4 subjects</div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <span class="metric-label">CURRENT STREAK</span>
+                        <div class="metric-value">7 Days</div>
+                        <div class="metric-subtext text-amber">Active daily study</div>
+                    </div>
+                </div>
+
+                <div class="content-grid-2col space-top">
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-column text-indigo"></i> Weekly Study Hours</h3>
+                        </div>
+                        <div class="chart-container" style="height: 240px;">
+                            <canvas id="weeklyHoursChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-pie text-purple"></i> Subject Distribution</h3>
+                        </div>
+                        <div class="chart-container" style="height: 240px;">
+                            <canvas id="subjectPieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 7: SESSION HISTORY -->
+            <section id="tab-history" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Saved Session History</h1>
+                        <p class="page-subtitle">Inspect historical study session logs saved in <code>data/sessions/</code>.</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="loadSessionHistory()">
+                        <i class="fa-solid fa-rotate-right"></i> Refresh Logs
+                    </button>
+                </div>
+
+                <div class="glass-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Date & Time</th>
+                                    <th>Duration</th>
+                                    <th>Average BPM</th>
+                                    <th>Readings</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">Loading session logs...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 8: NOTIFICATIONS -->
+            <section id="tab-notifications" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Notifications & Alerts</h1>
+                        <p class="page-subtitle">Academic reminders, AI recommendations, and system alerts.</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="markAllNotificationsRead()">
+                        <i class="fa-solid fa-check-double"></i> Mark All as Read
+                    </button>
+                </div>
+
+                <div class="glass-card">
+                    <div class="notifications-list" id="notifications-list-container">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 9: FACULTY / MENTOR DASHBOARD -->
+            <section id="tab-faculty" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Faculty / Mentor Dashboard</h1>
+                        <p class="page-subtitle">Academic mentorship overview for assigned student cohorts.</p>
+                    </div>
+                    <span class="badge badge-primary"><i class="fa-solid fa-user-shield"></i> Privacy Controlled</span>
+                </div>
+
+                <div class="faculty-notice-banner glass-card space-bottom">
+                    <i class="fa-solid fa-shield-halved text-emerald"></i>
+                    <div>
+                        <strong>Faculty Privacy & Mentorship Policy:</strong> Faculty view contains high-level activity telemetry and study pacing progress for assigned students. Raw medical data is not gathered or shared.
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h3>Assigned Students Overview</h3>
+                        <span class="badge badge-secondary">4 Active Students</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Study Status</th>
+                                    <th>Current Subject</th>
+                                    <th>Session Duration</th>
+                                    <th>Activity Level</th>
+                                    <th>Today's Target</th>
+                                    <th>Alerts</th>
+                                </tr>
+                            </thead>
+                            <tbody id="faculty-students-table">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 10: SETTINGS -->
+            <section id="tab-settings" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">System Settings & Hardware Config</h1>
+                        <p class="page-subtitle">Configure sensor source modes, simulated conditions, and timing preferences.</p>
+                    </div>
+                </div>
+
+                <div class="content-grid-2col">
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-sliders text-indigo"></i> Sensor Source Mode</h3>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Hardware Connection Mode</label>
+                            <div class="radio-card-group">
+                                <label class="radio-card">
+                                    <input type="radio" name="sensor_mode_radio" value="SIMULATION" checked onclick="setSensorMode('SIMULATION')">
+                                    <div class="radio-card-body">
+                                        <strong>SIMULATION MODE</strong>
+                                        <span>Use internal stateful MAX30102 simulator.</span>
+                                    </div>
+                                </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="sensor_mode_radio" value="HARDWARE" onclick="setSensorMode('HARDWARE')">
+                                    <div class="radio-card-body">
+                                        <strong>HARDWARE MODE</strong>
+                                        <span>Connect via Bluetooth BLE to ESP32 sensor.</span>
+                                    </div>
+                                </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="sensor_mode_radio" value="AUTO" onclick="setSensorMode('AUTO')">
+                                    <div class="radio-card-body">
+                                        <strong>AUTO MODE</strong>
+                                        <span>Use ESP32 hardware if present, else fallback to simulation.</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-vial text-purple"></i> Simulated Study Condition Switcher</h3>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Active Simulation Profile</label>
+                            <p class="setting-desc">Switch physiological profile to test software focus inferences:</p>
+                            
+                            <div class="condition-btn-grid">
+                                <button class="btn btn-outline" onclick="setSimulatedCondition('RESTING_FOCUS')">RESTING FOCUS (62-72 BPM)</button>
+                                <button class="btn btn-outline active" onclick="setSimulatedCondition('DEEP_STUDY')">DEEP STUDY (70-82 BPM)</button>
+                                <button class="btn btn-outline" onclick="setSimulatedCondition('INTENSE_PROBLEM_SOLVING')">INTENSE CALCULUS (83-98 BPM)</button>
+                                <button class="btn btn-outline" onclick="setSimulatedCondition('FATIGUE_SLUMP')">FATIGUE SLUMP (55-64 BPM)</button>
+                                <button class="btn btn-outline" onclick="setSimulatedCondition('HIGH_STRESS_ANXIETY')">HIGH STRESS (95-115 BPM)</button>
+                                <button class="btn btn-outline" onclick="setSimulatedCondition('DISTRACTED')">DISTRACTED (68-88 BPM)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="bottom-nav mobile-only">
+        <button class="bottom-nav-item active" data-tab="dashboard">
+            <i class="fa-solid fa-house"></i>
+            <span>Dash</span>
+        </button>
+        <button class="bottom-nav-item" data-tab="session">
+            <i class="fa-solid fa-stopwatch"></i>
+            <span>Session</span>
+        </button>
+        <button class="bottom-nav-item" data-tab="monitor">
+            <i class="fa-solid fa-heart-pulse"></i>
+            <span>Monitor</span>
+        </button>
+        <button class="bottom-nav-item" data-tab="coach">
+            <i class="fa-solid fa-robot"></i>
+            <span>Coach</span>
+        </button>
+        <button class="bottom-nav-item" data-tab="plan">
+            <i class="fa-solid fa-list-check"></i>
+            <span>Plan</span>
+        </button>
+    </nav>
+
+    <!-- Session Details Modal -->
+    <div class="modal-overlay" id="session-modal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3 id="modal-session-title">Session Detail</h3>
+                <button class="icon-btn" onclick="closeSessionModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="modal-session-body">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div class="modal-overlay" id="add-task-modal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3>Add New Study Task</h3>
+                <button class="icon-btn" onclick="closeAddTaskModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Subject</label>
+                    <input type="text" id="new-task-subject" class="form-input" placeholder="e.g. Mathematics">
+                </div>
+                <div class="form-group">
+                    <label>Task Description</label>
+                    <input type="text" id="new-task-title" class="form-input" placeholder="e.g. Linear Algebra Problems">
+                </div>
+                <div class="form-group">
+                    <label>Target Duration (Minutes)</label>
+                    <input type="number" id="new-task-duration" class="form-input" value="45">
+                </div>
+                <div class="form-actions space-top">
+                    <button class="btn btn-secondary" onclick="closeAddTaskModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="submitNewTask()">Save Task</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Authentication Modal (Sign In / Register) -->
+    <div class="modal-overlay" id="auth-modal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3 id="auth-modal-title">Student & Faculty Sign In</h3>
+                <button class="icon-btn" onclick="closeAuthModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="auth-tabs space-bottom" style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.75rem;">
+                    <button class="btn btn-sm btn-outline active flex-1" id="auth-tab-signin" onclick="switchAuthTab('signin')">Sign In</button>
+                    <button class="btn btn-sm btn-outline flex-1" id="auth-tab-register" onclick="switchAuthTab('register')">Register New Student</button>
+                </div>
+
+                <!-- Sign In Form -->
+                <div id="form-signin">
+                    <div class="form-group">
+                        <label>Roll Number / User ID</label>
+                        <input type="text" id="login-roll" class="form-input" placeholder="e.g. 2026101">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" class="form-input" placeholder="Enter password">
+                    </div>
+                    <div class="form-actions space-top">
+                        <button class="btn btn-primary flex-1" onclick="submitLogin()">Sign In</button>
+                    </div>
+                </div>
+
+                <!-- Register Form -->
+                <div id="form-register" style="display: none;">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="reg-name" class="form-input" placeholder="e.g. Arun Kumar">
+                    </div>
+                    <div class="form-group">
+                        <label>Roll Number / ID</label>
+                        <input type="text" id="reg-roll" class="form-input" placeholder="e.g. 2026105">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="reg-password" class="form-input" placeholder="Create password">
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select id="reg-role" class="form-input">
+                            <option value="Student">Student</option>
+                            <option value="Faculty">Faculty / Mentor</option>
+                        </select>
+                    </div>
+                    <div class="form-actions space-top">
+                        <button class="btn btn-primary flex-1" onclick="submitRegister()">Save User to Database</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hardware Health Diagnostic Modal -->
+    <div class="modal-overlay" id="hardware-diag-modal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-microchip text-cyan"></i> Hardware Integration Diagnostic</h3>
+                <button class="icon-btn" onclick="closeHardwareDiagModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="hardware-diag-body">
+                <div class="text-center py-4">Probing hardware sensor signal quality...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

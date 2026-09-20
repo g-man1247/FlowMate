@@ -45,6 +45,10 @@ class BaseHeartRateSensor(ABC):
         """Check if the sensor is active and connected."""
         pass
 
+    def get_device_name(self) -> str:
+        """Return human-readable device name."""
+        return getattr(self, "_device_name", "Heart Rate Sensor")
+
     @abstractmethod
     def get_reading(self) -> Optional[HeartRateReading]:
         """Fetch the latest heart rate reading."""

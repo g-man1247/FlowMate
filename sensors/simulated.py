@@ -19,6 +19,9 @@ class SimulatedHeartRateSensor(BaseHeartRateSensor):
         "RESTING_FOCUS": (62.0, 72.0),
         "DEEP_STUDY": (70.0, 82.0),
         "INTENSE_PROBLEM_SOLVING": (83.0, 98.0),
+        "FATIGUE_SLUMP": (55.0, 64.0),
+        "HIGH_STRESS_ANXIETY": (95.0, 115.0),
+        "DISTRACTED": (68.0, 88.0),
     }
 
     def __init__(self, initial_condition: str = "DEEP_STUDY", seed: Optional[int] = None):
