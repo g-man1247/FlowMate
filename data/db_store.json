@@ -7,7 +7,7 @@
       "role": "Student",
       "streak_days": 7,
       "goal_minutes": 180,
-      "completed_minutes": 108,
+      "completed_minutes": 117,
       "created_at": 1789905079.1105094
     },
     {
@@ -49,6 +49,16 @@
       "goal_minutes": 180,
       "completed_minutes": 4,
       "created_at": 1789913965.0559764
+    },
+    {
+      "name": "MADHANKUMAR",
+      "roll_no": "59",
+      "password": "313f2730fe71faf9b62be0f0243adc44174680338169cb4d0669bc9b115e7add",
+      "role": "Student",
+      "streak_days": 1,
+      "goal_minutes": 180,
+      "completed_minutes": 0,
+      "created_at": 1789927039.2465255
     }
   ],
   "tasks": [
@@ -117,6 +127,39 @@
       "status": "COMPLETED",
       "progress_pct": 100,
       "created_at": 1789913969.2506728
+    },
+    {
+      "id": 1789927039309,
+      "roll_no": "59",
+      "subject": "Mathematics",
+      "title": "Calculus - Integration",
+      "duration_minutes": 45,
+      "completed_minutes": 0,
+      "status": "NOT_STARTED",
+      "progress_pct": 0,
+      "created_at": 1789927039.3092444
+    },
+    {
+      "id": 1789927039313,
+      "roll_no": "59",
+      "subject": "Physics",
+      "title": "Electromagnetism & Waves",
+      "duration_minutes": 30,
+      "completed_minutes": 0,
+      "status": "NOT_STARTED",
+      "progress_pct": 0,
+      "created_at": 1789927039.313849
+    },
+    {
+      "id": 1789927039344,
+      "roll_no": "59",
+      "subject": "Programming",
+      "title": "Python Data Structures",
+      "duration_minutes": 60,
+      "completed_minutes": 0,
+      "status": "NOT_STARTED",
+      "progress_pct": 0,
+      "created_at": 1789927039.3448389
     }
   ],
   "notifications": []
