@@ -123,6 +123,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Start Telemetry Stream Polling (every 2 seconds)
     AppState.telemetryInterval = setInterval(fetchTelemetry, 2000);
+
+    // 1-Second Resolution Focus Timer Loop
+    setInterval(tickFocusTimer, 1000);
 });
 
 // Theme Management
@@ -337,10 +340,29 @@ async function fetchSystemStatus() {
     }
 }
 
+function tickFocusTimer() {
+    if (AppState.status && AppState.status.session && AppState.status.session.state === 'ACTIVE') {
+        const startTs = AppState.status.session.timestamp_start;
+        if (startTs) {
+            const nowSec = Date.now() / 1000;
+            const elapsedSec = Math.max(0, Math.floor(nowSec - startTs));
+            const formatted = formatSeconds(elapsedSec);
+
+            const timerDisplay = document.getElementById('dash-timer-display');
+            if (timerDisplay) timerDisplay.innerText = formatted;
+
+            const clockDisplay = document.getElementById('session-clock-display');
+            if (clockDisplay) clockDisplay.innerText = formatted;
+        }
+    }
+}
+
 async function fetchTelemetry() {
     try {
         const data = await API.get('/api/sensor/read');
-        updateHeartRateChart(data.bpm, data.timestamp);
+        if (data.connected && data.bpm !== null && data.bpm !== undefined) {
+            updateHeartRateChart(data.bpm, data.timestamp);
+        }
         
         // Background refresh status
         const statusData = await API.get('/api/status');
@@ -416,30 +438,48 @@ function updateUIWithStatus(data) {
         const modeBadge = document.getElementById('dash-sensor-mode');
         if (modeBadge) modeBadge.innerText = modeText;
 
-        const headerText = document.getElementById('header-sensor-text');
-        if (headerText) headerText.innerText = `${data.sensor.mode} (${data.sensor.device_name})`;
+        const devName = data.sensor.device_name || 'Smart Watch';
+        const isConn = data.sensor.connected && data.sensor.bpm !== null && data.sensor.bpm !== undefined;
+        const liveBpmText = isConn ? `${Math.round(data.sensor.bpm)} BPM` : '-- BPM';
+        const statusText = data.sensor.connected ? `🟢 Smart Watch Connected (${devName})` : '🔴 Smart Watch Disconnected';
 
-        const liveBpmText = `${data.sensor.bpm.toFixed(1)} BPM`;
+        const headerText = document.getElementById('header-sensor-text');
+        if (headerText) headerText.innerText = statusText;
+
         const dashBpmEl = document.getElementById('dash-live-bpm');
         if (dashBpmEl) dashBpmEl.innerText = liveBpmText;
 
         const chartLiveBpm = document.getElementById('chart-live-bpm');
-        if (chartLiveBpm) chartLiveBpm.innerText = data.sensor.bpm.toFixed(1);
+        if (chartLiveBpm) chartLiveBpm.innerText = isConn ? Math.round(data.sensor.bpm) : '--';
 
         const matrixBpm = document.getElementById('matrix-bpm');
         if (matrixBpm) matrixBpm.innerText = liveBpmText;
 
         const matrixDevice = document.getElementById('matrix-device');
-        if (matrixDevice) matrixDevice.innerText = `Source: ${data.sensor.device_name}`;
+        if (matrixDevice) matrixDevice.innerText = `Source: ${devName}${data.sensor.connected ? '' : ' (Disconnected)'}`;
 
         const hwStatusEl = document.getElementById('dash-hw-status');
-        if (hwStatusEl) hwStatusEl.innerText = data.sensor.connected ? 'Hardware Connected' : 'Sensor Disconnected';
+        if (hwStatusEl) hwStatusEl.innerText = data.sensor.connected ? '🟢 Smart Watch Connected' : '🔴 Watch Disconnected';
 
         const sessionBpmVal = document.getElementById('session-bpm-val');
         if (sessionBpmVal) sessionBpmVal.innerText = liveBpmText;
 
         const sessionDeviceSub = document.getElementById('session-device-sub');
-        if (sessionDeviceSub) sessionDeviceSub.innerText = data.sensor.device_name;
+        if (sessionDeviceSub) sessionDeviceSub.innerText = devName;
+
+        // Stress display updates
+        if (data.sensor.stress) {
+            const stressLevel = data.sensor.stress.level || 'Collecting data...';
+
+            const dashStressEl = document.getElementById('dash-stress-level');
+            if (dashStressEl) dashStressEl.innerText = stressLevel;
+
+            const sessionStressEl = document.getElementById('session-stress-level');
+            if (sessionStressEl) sessionStressEl.innerText = stressLevel;
+
+            const sessionStressSub = document.getElementById('session-stress-sub');
+            if (sessionStressSub) sessionStressSub.innerText = data.sensor.stress.explanation || 'Non-medical Wellness';
+        }
 
         // Pulse dot animation trigger
         const pulseDot = document.getElementById('header-pulse-dot');

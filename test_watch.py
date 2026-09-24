@@ -2,24 +2,32 @@ import asyncio
 from bleak import BleakScanner
 
 
+async def detection_callback(device, advertisement_data):
+    name = device.name or advertisement_data.local_name
+
+    if name:
+        print(
+            f"Name: {name:<30} "
+            f"Address: {device.address}"
+        )
+
+
 async def main():
-    print("Scanning for Bluetooth devices...")
-    print("Keep the EVO Vista close to your laptop.")
+    print("Scanning continuously for 60 seconds...")
+    print("Keep the EVO Vista close to the laptop.")
+    print("If possible, wake the watch screen.")
     print()
 
-    devices = await BleakScanner.discover(timeout=10)
+    scanner = BleakScanner(detection_callback)
 
-    if not devices:
-        print("No Bluetooth devices found.")
-        return
+    await scanner.start()
 
-    print("Devices found:")
-    print("-" * 60)
+    try:
+        await asyncio.sleep(60)
+    finally:
+        await scanner.stop()
 
-    for device in devices:
-        print(f"Name: {device.name}")
-        print(f"Address: {device.address}")
-        print("-" * 60)
+    print("\nScan finished.")
 
 
 asyncio.run(main())

@@ -276,11 +276,15 @@
                         <div class="hardware-quick-bar space-top">
                             <div class="hw-item">
                                 <span class="hw-label">Sensor Source:</span>
-                                <span class="hw-val text-primary" id="dash-sensor-mode">SIMULATION MODE</span>
+                                <span class="hw-val text-primary" id="dash-sensor-mode">BOULT WATCH</span>
                             </div>
                             <div class="hw-item">
-                                <span class="hw-label">Live Telemetry:</span>
-                                <span class="hw-val text-success" id="dash-live-bpm">72.0 BPM</span>
+                                <span class="hw-label">Smart Watch Heart Rate:</span>
+                                <span class="hw-val text-danger" id="dash-live-bpm">-- BPM</span>
+                            </div>
+                            <div class="hw-item">
+                                <span class="hw-label">Stress Level:</span>
+                                <span class="hw-val text-warning" id="dash-stress-level">Collecting data...</span>
                             </div>
                         </div>
                     </div>
@@ -381,14 +385,20 @@
                         </div>
 
                         <div class="telemetry-pill card">
-                            <span class="pill-title">Hardware Telemetry</span>
-                            <span class="pill-value text-info" id="session-bpm-val">72.0 BPM</span>
-                            <span class="pill-sub" id="session-device-sub">Simulated MAX30102</span>
+                            <span class="pill-title">Smart Watch Heart Rate</span>
+                            <span class="pill-value text-danger" id="session-bpm-val">-- BPM</span>
+                            <span class="pill-sub" id="session-device-sub">Smart Watch</span>
+                        </div>
+
+                        <div class="telemetry-pill card">
+                            <span class="pill-title">Stress Level</span>
+                            <span class="pill-value text-warning" id="session-stress-level">Collecting data...</span>
+                            <span class="pill-sub" id="session-stress-sub">Non-medical Wellness</span>
                         </div>
 
                         <div class="telemetry-pill card">
                             <span class="pill-title">Activity State</span>
-                            <span class="pill-value text-warning" id="session-activity-state">None</span>
+                            <span class="pill-value text-info" id="session-activity-state">None</span>
                             <span class="pill-sub">Input Signal Active</span>
                         </div>
                     </div>
@@ -416,8 +426,9 @@
                     </div>
                     <div class="mode-selector-group">
                         <span class="mode-label">Sensor Source:</span>
-                        <button class="btn btn-sm btn-outline active" id="mode-btn-SIMULATION" onclick="setSensorMode('SIMULATION')">SIMULATION</button>
-                        <button class="btn btn-sm btn-outline" id="mode-btn-HARDWARE" onclick="setSensorMode('HARDWARE')">HARDWARE (ESP32)</button>
+                        <button class="btn btn-sm btn-outline active" id="mode-btn-BOULT" onclick="setSensorMode('BOULT')">BOULT WATCH</button>
+                        <button class="btn btn-sm btn-outline" id="mode-btn-HARDWARE" onclick="setSensorMode('HARDWARE')">OTHER BLE WATCH</button>
+                        <button class="btn btn-sm btn-outline" id="mode-btn-SIMULATION" onclick="setSensorMode('SIMULATION')">SIMULATION</button>
                         <button class="btn btn-sm btn-outline" id="mode-btn-AUTO" onclick="setSensorMode('AUTO')">AUTO</button>
                     </div>
                 </div>
@@ -459,7 +470,7 @@
                                 <div class="matrix-type badge-raw">1. Hardware Measured</div>
                                 <div class="matrix-content">
                                     <strong id="matrix-bpm">72.0 BPM</strong>
-                                    <span id="matrix-device">Source: Simulated MAX30102</span>
+                                    <span id="matrix-device">Source: Smart Watch</span>
                                 </div>
                             </div>
 
@@ -762,6 +773,13 @@
                                     <div class="radio-card-body">
                                         <strong>AUTO DISCOVERY</strong>
                                         <span>Uses ESP32 BLE hardware if detected; otherwise auto-falls back to simulation.</span>
+                                    </div>
+                                </label>
+                                <label class="radio-card">
+                                    <input type="radio" name="sensor_mode_radio" value="BOULT" onclick="setSensorMode('BOULT')">
+                                    <div class="radio-card-body">
+                                        <strong>BOULT WATCH SH</strong>
+                                        <span>Bluetooth BLE pairing with Boult Watch SH hardware.</span>
                                     </div>
                                 </label>
                             </div>

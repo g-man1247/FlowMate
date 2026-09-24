@@ -8,11 +8,13 @@ from flask_cors import CORS
 from config.settings import SESSIONS_DIR, DISCLAIMER_TEXT, DEFAULT_OLLAMA_MODEL
 from sensors.simulated import SimulatedHeartRateSensor
 from sensors.ble_esp32 import ESP32BluetoothHeartRateSensor
+from sensors.boult_sensor import BoultHeartRateSensor
 from sensors.camera import camera_manager
 from sensors.health import HardwareHealthChecker
 from ai.ollama_client import OllamaClient
 from core.assistant import StudyAssistant
 from core.database import db_manager
+from core.statistics import calculate_stress_estimate
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.getenv("SECRET_KEY", "flowmate_secret_key_2026_super_secure")
@@ -21,10 +23,11 @@ CORS(app)
 # Application State Container
 class AppState:
     def __init__(self):
-        self.sensor_mode = "SIMULATION"  # "SIMULATION", "HARDWARE", "AUTO"
+        self.sensor_mode = "BOULT"  # "BOULT", "HARDWARE", "SIMULATION", "AUTO"
         self.simulated_sensor = SimulatedHeartRateSensor(initial_condition="DEEP_STUDY")
         self.hardware_sensor = ESP32BluetoothHeartRateSensor()
-        self.active_sensor = self.simulated_sensor
+        self.boult_sensor = BoultHeartRateSensor()
+        self.active_sensor = self.boult_sensor
         
         self.ollama_client = OllamaClient()
         self.assistant = StudyAssistant(sensor=self.active_sensor, ollama_client=self.ollama_client)
@@ -35,16 +38,21 @@ class AppState:
 
     def set_sensor_mode(self, mode: str):
         mode = mode.upper()
-        if mode in ["SIMULATION", "HARDWARE", "AUTO"]:
+        if mode in ["SIMULATION", "HARDWARE", "AUTO", "BOULT"]:
             self.sensor_mode = mode
-            if mode == "SIMULATION":
-                self.simulated_sensor.connect()
-                self.active_sensor = self.simulated_sensor
+            if mode == "BOULT":
+                self.boult_sensor.connect()
+                self.active_sensor = self.boult_sensor
             elif mode == "HARDWARE":
                 self.hardware_sensor.connect()
                 self.active_sensor = self.hardware_sensor
+            elif mode == "SIMULATION":
+                self.simulated_sensor.connect()
+                self.active_sensor = self.simulated_sensor
             elif mode == "AUTO":
-                if self.hardware_sensor.is_connected():
+                if self.boult_sensor.is_connected():
+                    self.active_sensor = self.boult_sensor
+                elif self.hardware_sensor.is_connected():
                     self.active_sensor = self.hardware_sensor
                 else:
                     self.simulated_sensor.connect()
@@ -54,14 +62,14 @@ class AppState:
             return True
         return False
 
-    def compute_focus_status(self, bpm: float, condition: str):
+    def compute_focus_status(self, bpm: Optional[float], condition: str):
         if self.session_state == "IDLE":
             return "SESSION ENDED", "None", 0
         if self.session_state == "PAUSED":
             return "BREAK", "Low", 95
             
-        if not self.active_sensor.is_connected():
-            return "SENSOR OFFLINE", "None", 100
+        if not self.active_sensor.is_connected() or bpm is None:
+            return "WATCH DISCONNECTED", "None", 0
             
         if condition in ["DEEP_STUDY", "INTENSE_PROBLEM_SOLVING"]:
             return "FOCUSED", "High", 88
@@ -78,7 +86,7 @@ class AppState:
 
 
 state = AppState()
-state.simulated_sensor.connect()
+state.boult_sensor.connect()
 
 # Active logged in user roll no (default Arun 2026101)
 DEFAULT_ROLL_NO = "2026101"
@@ -217,12 +225,23 @@ def get_status():
         elapsed_sec = int(time.time() - state.assistant.start_time)
         
     reading = state.assistant.record_sample() if session_active else None
-    if not reading and state.simulated_sensor.is_connected():
-        reading = state.simulated_sensor.get_reading()
+    if not reading and state.active_sensor.is_connected():
+        reading = state.active_sensor.get_reading()
 
-    bpm = reading.bpm if reading else 72.0
-    cond = reading.condition_label if reading else getattr(state.simulated_sensor, "_current_condition", "DEEP_STUDY")
-    
+    is_connected = state.active_sensor.is_connected()
+    device_name = state.active_sensor.get_device_name()
+    battery = getattr(state.active_sensor, "get_battery", lambda: None)()
+
+    if is_connected and reading:
+        bpm = reading.bpm
+        cond = reading.condition_label
+        is_sim = reading.is_simulated
+    else:
+        bpm = None
+        cond = "DISCONNECTED" if not is_connected else "WAITING_FOR_DATA"
+        is_sim = False
+
+    stress_info = calculate_stress_estimate(state.assistant.readings)
     status_label, activity_level, confidence = state.compute_focus_status(bpm, cond)
     
     # Calculate focus score dynamically based on condition & BPM stability
@@ -237,18 +256,21 @@ def get_status():
             "active": session_active,
             "state": state.session_state,
             "elapsed_seconds": elapsed_sec,
+            "timestamp_start": state.assistant.start_time,
             "current_subject": state.current_subject,
             "current_task": state.current_task,
             "total_readings": len(state.assistant.readings),
-            "average_bpm": round(state.assistant.get_average_bpm(), 1)
+            "average_bpm": round(state.assistant.get_average_bpm(), 1) if state.assistant.readings else None
         },
         "sensor": {
             "mode": state.sensor_mode,
-            "connected": state.active_sensor.is_connected(),
-            "device_name": state.active_sensor.get_device_name(),
+            "connected": is_connected,
+            "device_name": device_name,
+            "battery": battery,
             "condition": cond,
             "bpm": bpm,
-            "is_simulated": getattr(reading, "is_simulated", True)
+            "is_simulated": is_sim,
+            "stress": stress_info
         },
         "focus_analysis": {
             "status": status_label,
@@ -304,28 +326,34 @@ def stop_session():
 @app.route("/api/sensor/read", methods=["GET"])
 def sensor_read():
     reading = state.assistant.record_sample() if state.assistant.session_active else None
-    if not reading and state.simulated_sensor.is_connected():
-        reading = state.simulated_sensor.get_reading()
+    if not reading and state.active_sensor.is_connected():
+        reading = state.active_sensor.get_reading()
         
-    if reading:
+    is_connected = state.active_sensor.is_connected()
+    device = state.active_sensor.get_device_name()
+    battery = getattr(state.active_sensor, "get_battery", lambda: None)()
+
+    if is_connected and reading:
         bpm = reading.bpm
         cond = reading.condition_label
-        device = reading.device_name
         is_sim = reading.is_simulated
     else:
-        bpm = 72.0
-        cond = getattr(state.simulated_sensor, "_current_condition", "DEEP_STUDY")
-        device = state.active_sensor.get_device_name()
-        is_sim = True
+        bpm = None
+        cond = "DISCONNECTED" if not is_connected else "WAITING_FOR_DATA"
+        is_sim = False
 
+    stress_info = calculate_stress_estimate(state.assistant.readings)
     status_label, activity_level, confidence = state.compute_focus_status(bpm, cond)
     
     return jsonify({
         "timestamp": time.time(),
+        "connected": is_connected,
         "bpm": bpm,
+        "battery": battery,
         "condition": cond,
         "device_name": device,
         "is_simulated": is_sim,
+        "stress": stress_info,
         "focus_status": status_label,
         "activity_level": activity_level,
         "confidence_pct": confidence
@@ -561,10 +589,23 @@ def get_session_detail(filename):
 
 
 if __name__ == "__main__":
+    import socket
+
+    local_ip = "127.0.0.1"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+
     print("=" * 70)
     print("       FLOWMATE AI STUDY-FOCUS ASSISTANT - WEB SERVER")
     print("=" * 70)
-    print("Running web interface at: http://127.0.0.1:5000")
+    print("Running web interface at:")
+    print("  Local Access:   http://127.0.0.1:5000")
+    print(f"  Network Access: http://{local_ip}:5000")
     print("=" * 70)
-    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
 

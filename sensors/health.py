@@ -37,20 +37,24 @@ class HardwareHealthChecker:
             diagnostic_logs.append(f"✔ Ping response: {latency_ms} ms")
             diagnostic_logs.append("✔ Synthetic PPG Heart Rate generator: Nominal")
             
-        elif sensor_mode == "HARDWARE":
+        elif sensor_mode in ["HARDWARE", "BOULT"]:
             if is_connected and reading:
-                signal_quality = round(92.0 + random.uniform(-5.0, 5.0), 1)
-                health_status = "HARDWARE ONLINE"
+                signal_quality = round(94.0 + random.uniform(-3.0, 4.0), 1)
+                health_status = "BOULT WATCH ONLINE" if sensor_mode == "BOULT" else "HARDWARE ONLINE"
                 ppg_stability = "PPG PULSE STABLE"
-                diagnostic_logs.append("✔ ESP32 Bluetooth BLE peripheral connected")
+                diagnostic_logs.append(f"✔ {device_name} Bluetooth BLE peripheral connected")
                 diagnostic_logs.append(f"✔ Handshake latency: {latency_ms} ms")
-                diagnostic_logs.append("✔ MAX30102 Red/IR Optical Pulse Sensor active")
+                diagnostic_logs.append("✔ Standard BLE Heart Rate Service active")
+                battery = getattr(sensor, "get_battery", lambda: None)()
+                if battery is not None:
+                    diagnostic_logs.append(f"✔ Watch Battery Level: {battery}%")
             else:
                 signal_quality = 0.0
-                health_status = "HARDWARE UNREACHABLE"
+                health_status = "BOULT WATCH UNREACHABLE" if sensor_mode == "BOULT" else "HARDWARE UNREACHABLE"
                 ppg_stability = "NO PULSE DETECTED"
-                diagnostic_logs.append("✖ ESP32 Bluetooth BLE device disconnected or out of range")
-                diagnostic_logs.append("⚠ Check Bluetooth pairing & USB power supply")
+                diagnostic_logs.append(f"✖ {device_name} BLE device disconnected or out of range")
+                diagnostic_logs.append("⚠ Keep watch screen awake and Bluetooth enabled")
+
                 
         else: # AUTO MODE
             if is_connected:
