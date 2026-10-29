@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="abstract" data-mode="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +8,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <!-- Font Awesome Icons 6.4.0 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -18,8 +18,21 @@
 
     <!-- Custom Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/liquid-glass.css') }}">
+
+    <!-- Theme System JS -->
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+
+    <style>
+        .theme-swatch-nature { background: linear-gradient(135deg,#0a1a0f,#4caf80); }
+        .theme-swatch-abstract { background: linear-gradient(135deg,#111118,#8080ff); }
+        .theme-swatch-architecture { background: linear-gradient(135deg,#141210,#e2b17a); }
+        .theme-swatch-dark-serenity { background: linear-gradient(135deg,#090a0f,#38bdf8); }
+        .theme-swatch-gaming { background: linear-gradient(135deg,#0d0d14,#00c8ff); }
+        .theme-swatch-synthwave { background: linear-gradient(135deg,#0e0618,#c03aff); }
+    </style>
 </head>
-<body class="theme-dark">
+<body>
 
     <!-- Non-blocking Toast Container -->
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
@@ -58,7 +71,7 @@
 
             <div class="sensor-pill-badge" id="header-sensor-badge" onclick="switchTab('settings')" style="cursor: pointer;" title="Sensor Status & Source">
                 <span class="pulse-dot" id="header-pulse-dot"></span>
-                <span id="header-sensor-text">Simulation Mode</span>
+                <span id="header-sensor-text">Smartwatch Status</span>
             </div>
 
             <button class="icon-btn nav-link-trigger" data-tab="notifications" id="header-notif-btn" title="Notifications">
@@ -109,6 +122,10 @@
                     <i class="fa-solid fa-chart-column"></i>
                     <span>Analytics</span>
                 </button>
+                <button class="nav-item" data-tab="reading">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>Reading &amp; Notes</span>
+                </button>
                 <button class="nav-item" data-tab="history">
                     <i class="fa-solid fa-folder-open"></i>
                     <span>Session History</span>
@@ -152,27 +169,213 @@
                 </div>
             </div>
 
-            <!-- TAB 1: DASHBOARD -->
+            <!-- TAB 1: DASHBOARD (ADAPTIVE SESSION-FIRST WORKSPACE) -->
             <section id="tab-dashboard" class="tab-page active">
                 <div class="page-header">
                     <div>
                         <h1 class="page-title" id="dash-greeting-title">Good day 👋</h1>
-                        <p class="page-subtitle">Track your daily study progress, active focus sessions, and AI insights.</p>
+                        <p class="page-subtitle" id="dash-dynamic-subtitle">Your distraction-free focus workspace. Set your intention or continue your session.</p>
                     </div>
                     <div class="quick-actions">
-                        <button class="btn btn-primary" onclick="switchTab('session')">
-                            <i class="fa-solid fa-play"></i> Start Focus Session
+                        <button class="btn btn-primary" onclick="startOrResumeSession()" id="dash-main-action-btn">
+                            <i class="fa-solid fa-play"></i> <span id="dash-main-action-text">Start Focus Session</span>
                         </button>
                         <button class="btn btn-outline" onclick="openAddTaskModal()">
                             <i class="fa-solid fa-plus"></i> Add Task
                         </button>
-                        <button class="btn btn-outline" onclick="switchTab('coach')">
+                        <button class="btn btn-outline" onclick="toggleAICoachDrawer()">
                             <i class="fa-solid fa-robot"></i> Ask AI
                         </button>
                     </div>
                 </div>
 
-                <!-- Today Overview Metrics Grid -->
+                <!-- STATE 1: IDLE / BEFORE SESSION (Pre-session Intention) -->
+                <div id="dash-state-idle" class="session-adaptive-card space-bottom">
+                    <div class="card-header" style="border: none; padding-bottom: 0;">
+                        <div>
+                            <span class="badge badge-primary"><i class="fa-solid fa-compass"></i> Study Intention</span>
+                            <h2 style="font-size: 1.4rem; margin-top: 0.5rem; font-weight: 700;">What are you focusing on right now?</h2>
+                        </div>
+                        <span class="badge badge-secondary" id="dash-session-status-badge">IDLE</span>
+                    </div>
+
+                    <div class="intention-box">
+                        <input type="text" id="dash-intention-input" class="intention-input-large" placeholder="e.g. Calculus Integration Practice Problems..." onkeydown="if(event.key==='Enter') startIntentionSession()">
+                        
+                        <div style="margin-top: 1.25rem;">
+                            <label class="setting-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-m);">Target Session Duration</label>
+                            <div class="duration-pills-row">
+                                <button type="button" class="chip-selector active" data-duration="25" onclick="selectIntentionDuration(25)">
+                                    <i class="fa-solid fa-stopwatch"></i> 25m (Pomodoro)
+                                </button>
+                                <button type="button" class="chip-selector" data-duration="50" onclick="selectIntentionDuration(50)">
+                                    <i class="fa-solid fa-bolt"></i> 50m (Deep Dive)
+                                </button>
+                                <button type="button" class="chip-selector" data-duration="90" onclick="selectIntentionDuration(90)">
+                                    <i class="fa-solid fa-brain"></i> 90m (Extended Block)
+                                </button>
+                                <button type="button" class="chip-selector" data-duration="15" onclick="selectIntentionDuration(15)">
+                                    <i class="fa-solid fa-feather"></i> 15m (Quick Sprint)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1.25rem;">
+                            <label class="setting-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-m);">Focus Atmosphere Environment</label>
+                            <div class="env-pills-row">
+                                <button type="button" class="chip-selector active" data-env="deep-study" onclick="ThemeManager.setFocusEnvironment('deep-study'); selectFocusEnvUI('deep-study')">
+                                    <i class="fa-solid fa-bullseye"></i> Deep Study (Minimalist)
+                                </button>
+                                <button type="button" class="chip-selector" data-env="reading" onclick="ThemeManager.setFocusEnvironment('reading'); selectFocusEnvUI('reading')">
+                                    <i class="fa-solid fa-book-open"></i> Reading &amp; Research
+                                </button>
+                                <button type="button" class="chip-selector" data-env="break" onclick="ThemeManager.setFocusEnvironment('break'); selectFocusEnvUI('break')">
+                                    <i class="fa-solid fa-mug-hot"></i> Recovery &amp; Break
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; align-items: center; margin-top: 1.5rem; flex-wrap: wrap;">
+                        <button class="btn btn-primary btn-lg" onclick="startIntentionSession()">
+                            <i class="fa-solid fa-play"></i> Begin Focus Session
+                        </button>
+                        <span class="text-muted" style="font-size: 0.88rem;"><i class="fa-solid fa-shield-halved text-success"></i> Smartwatch paired &amp; ready</span>
+                    </div>
+                </div>
+
+                <!-- STATE 2: ACTIVE / IN-SESSION (Zen Focus Workspace) -->
+                <div id="dash-state-active" class="session-adaptive-card space-bottom" style="display: none;">
+                    <div class="zen-focus-view">
+                        <div class="zen-task-tag">
+                            <i class="fa-solid fa-bullseye"></i> <span id="dash-task-display">Calculus - Integration</span>
+                            <span class="text-muted" style="margin: 0 0.5rem;">•</span>
+                            <span id="dash-subject-display">Mathematics</span>
+                        </div>
+
+                        <div class="zen-timer-huge" id="dash-timer-display">00:00:00</div>
+
+                        <div class="status-indicator-pills" style="justify-content: center; margin-bottom: 1.5rem;">
+                            <div class="pill-indicator">
+                                <i class="fa-solid fa-heart-pulse text-danger"></i>
+                                <span id="dash-live-bpm">-- BPM</span>
+                            </div>
+                            <div class="pill-indicator">
+                                <i class="fa-solid fa-shield-heart text-warning"></i>
+                                <span id="dash-stress-level">Normal Pacing</span>
+                            </div>
+                            <div class="pill-indicator">
+                                <i class="fa-solid fa-microchip text-success"></i>
+                                <span id="dash-hw-status">Hardware Connected</span>
+                            </div>
+                            <div class="pill-indicator" style="display: none;">
+                                <span id="dash-act-status">Activity: Normal</span>
+                                <span id="dash-sensor-mode">BOULT WATCH</span>
+                            </div>
+                        </div>
+
+                        <div class="zen-controls-bar">
+                            <button class="btn btn-secondary btn-lg" onclick="togglePauseSession()">
+                                <i class="fa-solid fa-pause"></i> Pause Focus
+                            </button>
+                            <button class="btn btn-outline btn-lg" onclick="triggerSessionBreak()">
+                                <i class="fa-solid fa-mug-hot"></i> Take a 5m Break
+                            </button>
+                            <button class="btn btn-danger btn-lg" onclick="endSession()">
+                                <i class="fa-solid fa-stop"></i> End &amp; Reflect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STATE 3: BREAK / RECOVERY (Mindful Break Guidance) -->
+                <div id="dash-state-break" class="session-adaptive-card space-bottom" style="display: none;">
+                    <div class="card-header" style="border: none; padding-bottom: 0;">
+                        <div>
+                            <span class="badge badge-success"><i class="fa-solid fa-mug-hot"></i> Recovery &amp; Mindful Pause</span>
+                            <h2 style="font-size: 1.4rem; margin-top: 0.5rem; font-weight: 700;">Rest your eyes and recharge</h2>
+                        </div>
+                        <span class="badge badge-secondary" id="dash-break-timer-badge">05:00</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
+                        <div class="card" style="padding: 1.25rem; background: rgba(255,255,255,0.03);">
+                            <i class="fa-solid fa-eye text-primary" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+                            <h4 style="margin: 0.25rem 0;">20-20-20 Rule</h4>
+                            <p class="text-muted" style="font-size: 0.85rem; margin: 0;">Look at something 20 feet away for 20 seconds to relieve screen fatigue.</p>
+                        </div>
+                        <div class="card" style="padding: 1.25rem; background: rgba(255,255,255,0.03);">
+                            <i class="fa-solid fa-glass-water text-info" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+                            <h4 style="margin: 0.25rem 0;">Hydrate</h4>
+                            <p class="text-muted" style="font-size: 0.85rem; margin: 0;">Drink a glass of water to keep your cognitive endurance sharp.</p>
+                        </div>
+                        <div class="card" style="padding: 1.25rem; background: rgba(255,255,255,0.03);">
+                            <i class="fa-solid fa-person-walking text-success" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+                            <h4 style="margin: 0.25rem 0;">Gentle Stretch</h4>
+                            <p class="text-muted" style="font-size: 0.85rem; margin: 0;">Roll your shoulders back and stretch your neck to release tension.</p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <button class="btn btn-primary" onclick="resumeFromBreak()">
+                            <i class="fa-solid fa-play"></i> Return to Study Session
+                        </button>
+                        <button class="btn btn-outline" onclick="endSession()">
+                            <i class="fa-solid fa-check"></i> Complete Session Early
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STATE 4: COMPLETED / POST-SESSION REFLECTION -->
+                <div id="dash-state-completed" class="session-adaptive-card space-bottom" style="display: none;">
+                    <div class="card-header" style="border: none; padding-bottom: 0;">
+                        <div>
+                            <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Session Complete</span>
+                            <h2 style="font-size: 1.4rem; margin-top: 0.5rem; font-weight: 700;">Well done on your focus!</h2>
+                        </div>
+                    </div>
+
+                    <div class="content-grid-2col space-top">
+                        <div class="card" style="padding: 1.25rem;">
+                            <span class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">Duration Summary</span>
+                            <div style="font-size: 1.75rem; font-weight: 700; color: var(--accent); margin: 0.35rem 0;" id="reflection-duration-summary">25 mins completed</div>
+                            <span class="text-success" style="font-size: 0.88rem;"><i class="fa-solid fa-check"></i> Planned goal achieved</span>
+                        </div>
+                        <div class="card" style="padding: 1.25rem;">
+                            <span class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">Smartwatch Telemetry</span>
+                            <div style="font-size: 1.75rem; font-weight: 700; color: var(--danger); margin: 0.35rem 0;" id="reflection-bpm-summary">-- BPM Avg</div>
+                            <span class="text-muted" style="font-size: 0.88rem;">Calm study pacing detected</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.5rem; text-align: center;">
+                        <span class="setting-label">How did this study session feel?</span>
+                        <div class="reflection-rating-group">
+                            <button class="rating-btn" onclick="selectReflectionRating(1)">
+                                <i class="fa-solid fa-cloud"></i>
+                                <span>Distracted</span>
+                            </button>
+                            <button class="rating-btn active" onclick="selectReflectionRating(2)">
+                                <i class="fa-solid fa-scale-balanced"></i>
+                                <span>Steady</span>
+                            </button>
+                            <button class="rating-btn" onclick="selectReflectionRating(3)">
+                                <i class="fa-solid fa-water"></i>
+                                <span>Deep Flow</span>
+                            </button>
+                        </div>
+
+                        <div style="max-width: 500px; margin: 1rem auto;">
+                            <input type="text" id="reflection-note-input" class="form-input" placeholder="Optional reflection: What worked well? What to review next?">
+                        </div>
+
+                        <button class="btn btn-primary" onclick="dismissReflectionAndReset()" style="margin-top: 1rem;">
+                            <i class="fa-solid fa-arrow-right"></i> Save &amp; Return to Dashboard
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Today Overview Metrics Grid (Preserved) -->
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <div class="metric-header">
@@ -214,80 +417,15 @@
                     </div>
                 </div>
 
-                <!-- Dashboard 2-Column Grid -->
-                <div class="content-grid-2col space-top">
-                    
-                    <!-- Live Focus Timer Widget -->
-                    <div class="card flex-col">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-stopwatch text-primary"></i> Live Focus Session</h3>
-                            <span class="badge badge-secondary" id="dash-session-status-badge">IDLE</span>
-                        </div>
-
-                        <div class="radial-timer-container">
-                            <div class="radial-timer-circle">
-                                <span class="timer-display" id="dash-timer-display">00:00:00</span>
-                                <span class="timer-subject" id="dash-subject-display">Mathematics</span>
-                                <span class="timer-task" id="dash-task-display">Calculus - Integration</span>
-                            </div>
-                        </div>
-
-                        <div class="status-indicator-pills">
-                            <div class="pill-indicator">
-                                <i class="fa-solid fa-microchip text-success"></i>
-                                <span id="dash-hw-status">Hardware Connected</span>
-                            </div>
-                            <div class="pill-indicator">
-                                <i class="fa-solid fa-bolt text-warning"></i>
-                                <span id="dash-act-status">Activity: Normal</span>
-                            </div>
-                        </div>
-
-                        <div class="card-actions space-top">
-                            <button class="btn btn-secondary flex-1" onclick="togglePauseSession()">
-                                <i class="fa-solid fa-pause"></i> Pause / Resume
-                            </button>
-                            <button class="btn btn-danger flex-1" onclick="endSession()">
-                                <i class="fa-solid fa-stop"></i> End Session
-                            </button>
+                <!-- Quick AI Insight Banner (Quiet & Non-Intrusive) -->
+                <div class="gentle-suggestion-banner space-top" id="dash-ai-coaching-content">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <i class="fa-solid fa-lightbulb text-warning" style="font-size: 1.25rem;"></i>
+                        <div>
+                            <strong>AI Study Insight:</strong> Short 25-minute study intervals followed by 5-minute cognitive breaks maximize long-term retention.
                         </div>
                     </div>
-
-                    <!-- AI Study Coach Quick Box -->
-                    <div class="card flex-col">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-robot text-primary"></i> AI Coach Focus Insight</h3>
-                            <button class="btn btn-sm btn-ghost" onclick="switchTab('coach')">Open Chat <i class="fa-solid fa-arrow-right"></i></button>
-                        </div>
-
-                        <div class="ai-coaching-box" id="dash-ai-coaching-content">
-                            <div class="ai-speech-bubble">
-                                <div class="ai-avatar"><i class="fa-solid fa-brain"></i></div>
-                                <div class="ai-text">
-                                    <p><strong>Welcome to your FlowMate Study Dashboard!</strong></p>
-                                    <p>Start a focus session or select a task from your Study Planner. I'm available anytime to answer academic questions, give revision tips, or suggest optimal study breaks.</p>
-                                    <div class="ai-suggestion-chip">
-                                        <i class="fa-solid fa-lightbulb text-warning"></i> <strong>Pro Tip:</strong> Use 25-minute Pomodoro blocks for intense problem-solving tasks.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="hardware-quick-bar space-top">
-                            <div class="hw-item">
-                                <span class="hw-label">Sensor Source:</span>
-                                <span class="hw-val text-primary" id="dash-sensor-mode">BOULT WATCH</span>
-                            </div>
-                            <div class="hw-item">
-                                <span class="hw-label">Smart Watch Heart Rate:</span>
-                                <span class="hw-val text-danger" id="dash-live-bpm">-- BPM</span>
-                            </div>
-                            <div class="hw-item">
-                                <span class="hw-label">Stress Level:</span>
-                                <span class="hw-val text-warning" id="dash-stress-level">Collecting data...</span>
-                            </div>
-                        </div>
-                    </div>
+                    <button class="btn btn-sm btn-ghost" onclick="toggleAICoachDrawer()">Chat with AI Coach <i class="fa-solid fa-arrow-right"></i></button>
                 </div>
 
                 <!-- Today's Tasks Summary Section -->
@@ -385,9 +523,9 @@
                         </div>
 
                         <div class="telemetry-pill card">
-                            <span class="pill-title">Smart Watch Heart Rate</span>
+                            <span class="pill-title">Heart Rate</span>
                             <span class="pill-value text-danger" id="session-bpm-val">-- BPM</span>
-                            <span class="pill-sub" id="session-device-sub">Smart Watch</span>
+                            <span class="pill-sub" id="session-device-sub">Smartwatch BLE</span>
                         </div>
 
                         <div class="telemetry-pill card">
@@ -400,6 +538,12 @@
                             <span class="pill-title">Activity State</span>
                             <span class="pill-value text-info" id="session-activity-state">None</span>
                             <span class="pill-sub">Input Signal Active</span>
+                        </div>
+
+                        <div class="telemetry-pill card">
+                            <span class="pill-title">Sensor State</span>
+                            <span class="pill-value text-primary" id="session-sensor-state">DISCONNECTED</span>
+                            <span class="pill-sub">BLE Connection Status</span>
                         </div>
                     </div>
 
@@ -422,14 +566,16 @@
                 <div class="page-header">
                     <div>
                         <h1 class="page-title">Activity &amp; Sensor Telemetry Monitor</h1>
-                        <p class="page-subtitle">Inspect raw physical sensor measurements alongside software focus signals and AI coaching.</p>
+                        <p class="page-subtitle">Real-time smartwatch BLE heart-rate stream with software focus analysis.</p>
                     </div>
-                    <div class="mode-selector-group">
-                        <span class="mode-label">Sensor Source:</span>
-                        <button class="btn btn-sm btn-outline active" id="mode-btn-BOULT" onclick="setSensorMode('BOULT')">BOULT WATCH</button>
-                        <button class="btn btn-sm btn-outline" id="mode-btn-HARDWARE" onclick="setSensorMode('HARDWARE')">OTHER BLE WATCH</button>
-                        <button class="btn btn-sm btn-outline" id="mode-btn-SIMULATION" onclick="setSensorMode('SIMULATION')">SIMULATION</button>
-                        <button class="btn btn-sm btn-outline" id="mode-btn-AUTO" onclick="setSensorMode('AUTO')">AUTO</button>
+                    <div class="sensor-control-group">
+                        <span class="sensor-state-badge" id="monitor-sensor-state-badge">DISCONNECTED</span>
+                        <button class="btn btn-sm btn-primary" id="btn-start-hr" onclick="startHeartRateMeasurement()">
+                            <i class="fa-solid fa-heart-pulse"></i> START HEART RATE
+                        </button>
+                        <button class="btn btn-sm btn-danger" id="btn-stop-hr" onclick="stopHeartRateMeasurement()">
+                            <i class="fa-solid fa-stop"></i> STOP HEART RATE
+                        </button>
                     </div>
                 </div>
 
@@ -437,8 +583,8 @@
                 <div class="card space-bottom">
                     <div class="card-header">
                         <div>
-                            <h3><i class="fa-solid fa-heart-pulse text-danger"></i> Heart Rate Stream (BPM)</h3>
-                            <span class="card-subtitle">Real-time hardware telemetry sample (Polls every 2 seconds)</span>
+                            <h3><i class="fa-solid fa-heart-pulse text-danger"></i> Smartwatch Heart Rate Stream (BPM)</h3>
+                            <span class="card-subtitle">Real-time smartwatch BLE telemetry (Updated every 1 second)</span>
                         </div>
                         <div class="live-bpm-display">
                             <span class="pulse-icon"><i class="fa-solid fa-heartbeat text-danger"></i></span>
@@ -536,6 +682,72 @@
                                 <span class="pill-sub">Screen Alignment Normal</span>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            
+            <!-- TAB: DISTRACTION-FREE READING & NOTES WORKSPACE -->
+            <section id="tab-reading" class="tab-page">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">Distraction-Free Reading &amp; Notes</h1>
+                        <p class="page-subtitle">Deep reading environment with adjustable typography, comfortable line pacing, and quick scratchpad notes.</p>
+                    </div>
+                    <div style="display: flex; gap: 0.65rem; align-items: center;">
+                        <span class="badge badge-secondary"><i class="fa-solid fa-book-open"></i> Reading Mode</span>
+                        <button class="btn btn-sm btn-outline" onclick="clearScratchpadNotes()">
+                            <i class="fa-solid fa-eraser"></i> Clear Notes
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card space-bottom" style="padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+                        <div>
+                            <span class="setting-label" style="margin-bottom: 0.25rem; font-size: 0.75rem;">Text Scale:</span>
+                            <div class="chip-selector-group" style="display: flex; gap: 0.35rem;">
+                                <button class="btn btn-sm btn-outline" onclick="setReadingFontSize('1rem')">A-</button>
+                                <button class="btn btn-sm btn-outline active" onclick="setReadingFontSize('1.15rem')">A</button>
+                                <button class="btn btn-sm btn-outline" onclick="setReadingFontSize('1.35rem')">A+</button>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="setting-label" style="margin-bottom: 0.25rem; font-size: 0.75rem;">Reading Surface:</span>
+                            <div class="chip-selector-group" style="display: flex; gap: 0.35rem;">
+                                <button class="btn btn-sm btn-outline active" onclick="setReadingTheme('default')">Default</button>
+                                <button class="btn btn-sm btn-outline" onclick="setReadingTheme('sepia')">Warm Sepia</button>
+                                <button class="btn btn-sm btn-outline" onclick="setReadingTheme('night')">Night Slate</button>
+                            </div>
+                        </div>
+                    </div>
+                    <span class="text-muted" style="font-size: 0.85rem;"><i class="fa-solid fa-cloud-arrow-up text-success"></i> Scratchpad notes auto-saved</span>
+                </div>
+
+                <div class="reading-environment" id="reading-environment-wrapper">
+                    <div class="reading-article-pane" id="reading-article-pane">
+                        <div class="reading-body-text">
+                            <h2 style="margin-top: 0; font-size: 1.75rem; font-weight: 700; color: var(--text-p);">Deep Work &amp; Cognitive Endurance in Academic Study</h2>
+                            <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 1.5rem;">Estimated reading time: 4 minutes • Study Practice Article</p>
+                            
+                            <p>Deep work is the ability to focus without distraction on a cognitively demanding task. It is a skill that allows you to quickly master complicated information and produce better results in less time. Deep work makes you better at what you do and provides the sense of true fulfillment that comes from craftsmanship.</p>
+                            
+                            <h3 style="color: var(--text-p); margin-top: 1.75rem;">1. The Principle of Attention Residue</h3>
+                            <p>When you switch from Task A to Task B, your attention does not immediately follow. A residue of your attention remains stuck thinking about the previous task. This is especially pronounced if Task A was unbounded, unfinished, or demanding.</p>
+                            <p>By protecting your study sessions with defined 25-minute or 50-minute blocks, you eliminate rapid context switching, allowing your neural pathways to fully engage with the core material.</p>
+                            
+                            <h3 style="color: var(--text-p); margin-top: 1.75rem;">2. Pacing with Physiological Awareness</h3>
+                            <p>Real-time telemetry such as your smartwatch heart-rate stream offers gentle feedback on your autonomic state. When you approach mental fatigue, your pacing shifts. FlowMate uses this data not to judge, but to suggest mindful recovery moments before burnout occurs.</p>
+                        </div>
+                    </div>
+
+                    <div class="reading-notes-pane">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <h3 style="font-size: 1.1rem; margin: 0;"><i class="fa-solid fa-pen-to-square text-primary"></i> Scratchpad Notes</h3>
+                            <span class="badge badge-secondary" id="notes-word-count">0 words</span>
+                        </div>
+                        <p class="text-muted" style="font-size: 0.82rem; margin: 0;">Quick ideas, definitions, and questions during your reading.</p>
+                        <textarea id="reading-scratchpad" class="reading-notes-textarea" placeholder="Type key takeaways, formulas, or questions here..." oninput="saveScratchpadNotes()"></textarea>
                     </div>
                 </div>
             </section>
@@ -736,72 +948,241 @@
                 </div>
             </section>
 
-            <!-- TAB 10: SETTINGS & SENSOR CONFIGURATION -->
+            <!-- TAB 10: SETTINGS, PERSONALIZATION & PRIVACY -->
             <section id="tab-settings" class="tab-page">
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">Settings &amp; Hardware Configuration</h1>
-                        <p class="page-subtitle">Customize application preferences, sensor sources, and simulated study condition profiles.</p>
+                        <h1 class="page-title">Personalization &amp; Privacy Center</h1>
+                        <p class="page-subtitle">Customise your atmospheric theme, wallpaper blur, and transparent local sensor telemetry controls.</p>
+                    </div>
+                    <button class="btn btn-outline" onclick="ThemeManager.resetDefaults(); Toast.show('Restored default appearance settings', 'info', 2000);">
+                        <i class="fa-solid fa-rotate-left"></i> Restore Defaults
+                    </button>
+                </div>
+
+                <!-- Theme Selection (6 Themes) -->
+                <div class="settings-section">
+                    <h2 class="settings-section-title">Visual Atmosphere &amp; Themes</h2>
+                    <div class="theme-cards-grid" id="theme-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                        <button class="theme-card" data-theme-select="nature" onclick="ThemeManager.setTheme('nature')">
+                            <div class="theme-swatch theme-swatch-nature"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">Forest Focus</span>
+                                <span class="theme-card-desc">Calm nature-inspired study</span>
+                            </div>
+                            <i class="fa-solid fa-check theme-card-check"></i>
+                        </button>
+                        <button class="theme-card" data-theme-select="abstract" onclick="ThemeManager.setTheme('abstract')">
+                            <div class="theme-swatch theme-swatch-abstract"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">Pure Form</span>
+                                <span class="theme-card-desc">Graphite sculptural minimal</span>
+                            </div>
+                            <i class="fa-solid fa-check theme-card-check"></i>
+                        </button>
+                        <button class="theme-card" data-theme-select="architecture" onclick="ThemeManager.setTheme('architecture')">
+                            <div class="theme-swatch theme-swatch-architecture"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">Minimal Atrium</span>
+                                <span class="theme-card-desc">Sunlit stone &amp; clean planes</span>
+                            </div>
+                            <i class="fa-solid fa-check theme-card-check"></i>
+                        </button>
+                        <button class="theme-card" data-theme-select="dark-serenity" onclick="ThemeManager.setTheme('dark-serenity')">
+                            <div class="theme-swatch theme-swatch-dark-serenity"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">Dark Serenity</span>
+                                <span class="theme-card-desc">Obsidian quiet midnight</span>
+                            </div>
+                            <i class="fa-solid fa-check theme-card-check"></i>
+                        </button>
+                        <button class="theme-card" data-theme-select="gaming" onclick="ThemeManager.setTheme('gaming')">
+                            <div class="theme-swatch theme-swatch-gaming"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">Electric Flow</span>
+                                <span class="theme-card-desc">Tactical cyber cyan</span>
+                            </div>
+                            <i class="fa-solid fa-check theme-card-check"></i>
+                        </button>
+                        <button class="theme-card" data-theme-select="synthwave" onclick="ThemeManager.setTheme('synthwave')">
+                            <div class="theme-swatch theme-swatch-synthwave"></div>
+                            <div class="theme-card-info">
+                                <span class="theme-card-name">Night Signal</span>
+                                <span class="theme-card-desc">Retro-futuristic violet</span>
+                            </div>
+                            <i class="fa-solid fa-check theme-card-check"></i>
+                        </button>
                     </div>
                 </div>
 
-                <div class="content-grid-2col">
+                <!-- Appearance Mode, Wallpaper Presets & Custom Upload -->
+                <div class="content-grid-2col space-top">
                     <div class="card">
                         <div class="card-header">
-                            <h3><i class="fa-solid fa-sliders text-primary"></i> Sensor Hardware Mode</h3>
+                            <h3><i class="fa-solid fa-circle-half-stroke text-primary"></i> Appearance Mode &amp; Surface</h3>
                         </div>
-
                         <div class="setting-group">
-                            <label class="setting-label">Active Connection Source</label>
-                            <div class="radio-card-group">
-                                <label class="radio-card">
-                                    <input type="radio" name="sensor_mode_radio" value="SIMULATION" checked onclick="setSensorMode('SIMULATION')">
-                                    <div class="radio-card-body">
-                                        <strong>SIMULATION MODE</strong>
-                                        <span>Internal stateful MAX30102 PPG pulse generator engine.</span>
-                                    </div>
-                                </label>
-                                <label class="radio-card">
-                                    <input type="radio" name="sensor_mode_radio" value="HARDWARE" onclick="setSensorMode('HARDWARE')">
-                                    <div class="radio-card-body">
-                                        <strong>HARDWARE MODE (ESP32 BLE)</strong>
-                                        <span>Bluetooth BLE pairing with hardware MAX30102 sensor.</span>
-                                    </div>
-                                </label>
-                                <label class="radio-card">
-                                    <input type="radio" name="sensor_mode_radio" value="AUTO" onclick="setSensorMode('AUTO')">
-                                    <div class="radio-card-body">
-                                        <strong>AUTO DISCOVERY</strong>
-                                        <span>Uses ESP32 BLE hardware if detected; otherwise auto-falls back to simulation.</span>
-                                    </div>
-                                </label>
-                                <label class="radio-card">
-                                    <input type="radio" name="sensor_mode_radio" value="BOULT" onclick="setSensorMode('BOULT')">
-                                    <div class="radio-card-body">
-                                        <strong>BOULT WATCH SH</strong>
-                                        <span>Bluetooth BLE pairing with Boult Watch SH hardware.</span>
-                                    </div>
-                                </label>
+                            <label class="setting-label">Color Mode</label>
+                            <div class="mode-toggle-row">
+                                <button class="mode-btn" id="mode-btn-dark" onclick="ThemeManager.setMode('dark')">
+                                    <i class="fa-solid fa-moon"></i> Dark
+                                </button>
+                                <button class="mode-btn" id="mode-btn-light" onclick="ThemeManager.setMode('light')">
+                                    <i class="fa-solid fa-sun"></i> Light
+                                </button>
+                            </div>
+
+                            <div style="margin-top: 1.25rem;">
+                                <label class="setting-label">Liquid Glass Intensity</label>
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.35rem;">
+                                    <button class="chip-selector" id="glass-btn-subtle" onclick="ThemeManager.setGlassIntensity('subtle'); updateGlassUI('subtle')">Subtle</button>
+                                    <button class="chip-selector active" id="glass-btn-balanced" onclick="ThemeManager.setGlassIntensity('balanced'); updateGlassUI('balanced')">Balanced</button>
+                                    <button class="chip-selector" id="glass-btn-pronounced" onclick="ThemeManager.setGlassIntensity('pronounced'); updateGlassUI('pronounced')">Pronounced</button>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <strong style="font-size: 0.9rem;">Solid Color Surface</strong>
+                                    <div class="text-muted" style="font-size: 0.8rem;">Disable gradients for maximum contrast</div>
+                                </div>
+                                <input type="checkbox" id="wp-solid-toggle" onchange="ThemeManager.setSolidColor(this.checked)" style="transform: scale(1.3); cursor: pointer;">
                             </div>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <h3><i class="fa-solid fa-vial text-secondary"></i> Simulated Study Condition Switcher</h3>
+                            <h3><i class="fa-solid fa-image text-primary"></i> Wallpaper &amp; Atmosphere Controls</h3>
+                        </div>
+                        <div class="setting-group">
+                            <label class="setting-label">Wallpaper Variant</label>
+                            <div class="wallpaper-row">
+                                <button class="wallpaper-btn" id="wp-btn-1" onclick="ThemeManager.setWallpaper(1)">
+                                    <div class="wp-preview wp-preview-1"></div>
+                                    <span id="wp-name-1">Option 1</span>
+                                </button>
+                                <button class="wallpaper-btn" id="wp-btn-2" onclick="ThemeManager.setWallpaper(2)">
+                                    <div class="wp-preview wp-preview-2"></div>
+                                    <span id="wp-name-2">Option 2</span>
+                                </button>
+                            </div>
+
+                            <div style="margin-top: 1.25rem;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <label class="setting-label">Background Blur Strength</label>
+                                    <span class="text-muted" id="wp-blur-val" style="font-size: 0.8rem;">0px</span>
+                                </div>
+                                <input type="range" id="wp-blur-slider" min="0" max="40" value="0" style="width: 100%; cursor: pointer;" oninput="ThemeManager.setBlur(this.value); document.getElementById('wp-blur-val').textContent = this.value + 'px';">
+                            </div>
+
+                            <div style="margin-top: 1rem;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <label class="setting-label">Background Dimming Strength</label>
+                                    <span class="text-muted" id="wp-dim-val" style="font-size: 0.8rem;">0%</span>
+                                </div>
+                                <input type="range" id="wp-dim-slider" min="0" max="80" value="0" style="width: 100%; cursor: pointer;" oninput="ThemeManager.setDim(this.value); document.getElementById('wp-dim-val').textContent = this.value + '%';">
+                            </div>
+
+                            <div style="margin-top: 1.25rem; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
+                                <label class="setting-label"><i class="fa-solid fa-upload"></i> Custom Wallpaper Image</label>
+                                <input type="file" id="custom-wp-upload" accept="image/*" class="form-input" style="font-size: 0.85rem;" onchange="handleCustomWallpaperUpload(event)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SENSORS & PRIVACY TRANSPARENCY CENTER (SECTION 8) -->
+                <div class="card space-top">
+                    <div class="card-header">
+                        <div>
+                            <h3><i class="fa-solid fa-shield-halved text-success"></i> Sensors &amp; Privacy Transparency Center</h3>
+                            <span class="card-subtitle">Complete visibility into local sensor data processing, zero-cloud storage, and user consent.</span>
+                        </div>
+                        <span class="badge badge-success"><i class="fa-solid fa-lock"></i> 100% Local Inference</span>
+                    </div>
+
+                    <div class="privacy-grid">
+                        <div class="privacy-card">
+                            <div class="privacy-card-header">
+                                <strong style="font-size: 0.95rem;"><i class="fa-solid fa-heart-pulse text-danger"></i> Smartwatch BLE</strong>
+                                <span class="privacy-local-badge"><i class="fa-solid fa-check"></i> Local RAM</span>
+                            </div>
+                            <p class="text-muted" style="font-size: 0.82rem; margin: 0;">Reads real heart-rate notifications via Windows Bluetooth GATT. Stored purely in memory during your session. Never uploaded to any external server.</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
+                                <span class="text-muted" style="font-size: 0.8rem;">Telemetry Active</span>
+                                <input type="checkbox" id="privacy-hr-toggle" checked onchange="toggleSensorPrivacy('hr', this.checked)" style="cursor: pointer;">
+                            </div>
                         </div>
 
+                        <div class="privacy-card">
+                            <div class="privacy-card-header">
+                                <strong style="font-size: 0.95rem;"><i class="fa-solid fa-video text-primary"></i> OpenCV YuNet Vision</strong>
+                                <span class="privacy-local-badge"><i class="fa-solid fa-check"></i> On-Device AI</span>
+                            </div>
+                            <p class="text-muted" style="font-size: 0.82rem; margin: 0;">Estimates presence and posture locally via lightweight ONNX neural net. Video frames are discarded instantly in RAM; no camera images are ever saved to disk or cloud.</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
+                                <span class="text-muted" style="font-size: 0.8rem;">Vision Companion</span>
+                                <input type="checkbox" id="privacy-camera-toggle" checked onchange="toggleSensorPrivacy('camera', this.checked)" style="cursor: pointer;">
+                            </div>
+                        </div>
+
+                        <div class="privacy-card">
+                            <div class="privacy-card-header">
+                                <strong style="font-size: 0.95rem;"><i class="fa-solid fa-robot text-info"></i> Ollama LLM Coach</strong>
+                                <span class="privacy-local-badge"><i class="fa-solid fa-check"></i> Offline Server</span>
+                            </div>
+                            <p class="text-muted" style="font-size: 0.82rem; margin: 0;">AI study coaching runs on your localhost Ollama instance (port 11434). Your questions, notes, and academic queries never leave your computer.</p>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--glass-border);">
+                                <span class="text-muted" style="font-size: 0.8rem;">Localhost 11434</span>
+                                <span class="badge badge-success" style="font-size: 0.72rem;">Verified Offline</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert-box alert-info space-top">
+                        <i class="fa-solid fa-circle-check text-success"></i>
+                        <div style="font-size: 0.85rem;">
+                            <strong>Data Retention &amp; Academic Scope:</strong> FlowMate is purely an academic focus companion. Your session logs are stored locally in <code>data/db_store.json</code> and can be cleared or reviewed at any time in the Session History tab.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Smartwatch Connection (Preserved & Real BLE) -->
+                <div class="content-grid-2col space-top">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-sliders text-primary"></i> Smartwatch Connection</h3>
+                        </div>
                         <div class="setting-group">
-                            <label class="setting-label">Active Simulation Profile</label>
-                            <p class="setting-desc">Switch physiological state parameters to test software focus signal classification:</p>
-                            
-                            <div class="condition-btn-grid" id="condition-btn-grid">
-                                <button class="btn btn-outline" onclick="setSimulatedCondition('RESTING_FOCUS')">RESTING FOCUS (62-72 BPM)</button>
-                                <button class="btn btn-outline active" onclick="setSimulatedCondition('DEEP_STUDY')">DEEP STUDY (70-82 BPM)</button>
-                                <button class="btn btn-outline" onclick="setSimulatedCondition('INTENSE_PROBLEM_SOLVING')">INTENSE PROBLEM SOLVING (83-98 BPM)</button>
-                                <button class="btn btn-outline" onclick="setSimulatedCondition('FATIGUE_SLUMP')">FATIGUE SLUMP (55-64 BPM)</button>
-                                <button class="btn btn-outline" onclick="setSimulatedCondition('HIGH_STRESS_ANXIETY')">HIGH STRESS (95-115 BPM)</button>
-                                <button class="btn btn-outline" onclick="setSimulatedCondition('DISTRACTED')">DISTRACTED (68-88 BPM)</button>
+                            <label class="setting-label">Active Connection Source</label>
+                            <div class="radio-card-group">
+                                <label class="radio-card">
+                                    <input type="radio" name="sensor_mode_radio" value="SMARTWATCH" checked onclick="setSensorMode('SMARTWATCH')">
+                                    <div class="radio-card-body">
+                                        <strong>REAL SMARTWATCH (BLE)</strong>
+                                        <span>Direct Bluetooth Low Energy connection to your smartwatch.</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="space-top">
+                                <button class="btn btn-primary btn-block" onclick="triggerHeartRateMeasurement()">
+                                    <i class="fa-solid fa-heart-pulse"></i> Start Heart Rate Measurement
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-circle-info text-info"></i> BLE Telemetry Architecture</h3>
+                        </div>
+                        <div class="setting-group">
+                            <label class="setting-label">Real Data Flow</label>
+                            <p class="setting-desc">Smartwatch → BLE GATT Notification → Windows Python Host → FlowMate Backend API → Web Frontend</p>
+                            <div class="alert-box alert-info space-top">
+                                <i class="fa-solid fa-shield-halved"></i>
+                                <div><strong>Watch Control Note:</strong><br>Watch screen control is not available through the currently exposed BLE interface. FlowMate operates as a real-time subscriber to live heart-rate notifications.</div>
                             </div>
                         </div>
                     </div>
@@ -960,6 +1341,49 @@
             </div>
         </div>
     </div>
+
+    
+    <!-- Floating Quiet AI Study Companion Trigger -->
+    <button class="ai-floating-trigger" id="ai-floating-trigger" onclick="toggleAICoachDrawer()" title="Open Quiet AI Study Companion">
+        <i class="fa-solid fa-robot text-primary"></i>
+        <span>AI Study Coach</span>
+    </button>
+
+    <!-- Contextual Slide-over AI Companion Drawer -->
+    <aside class="ai-companion-drawer" id="ai-coach-drawer">
+        <div class="ai-drawer-header">
+            <div style="display: flex; align-items: center; gap: 0.65rem;">
+                <i class="fa-solid fa-robot text-primary" style="font-size: 1.25rem;"></i>
+                <div>
+                    <h3 style="margin: 0; font-size: 1.05rem;">FlowMate Study Companion</h3>
+                    <span class="text-muted" style="font-size: 0.78rem;">Quiet local Ollama assistant</span>
+                </div>
+            </div>
+            <button class="icon-btn" onclick="toggleAICoachDrawer()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="ai-drawer-body" id="ai-drawer-messages">
+            <div class="chat-msg coach-msg">
+                <div class="msg-avatar"><i class="fa-solid fa-robot"></i></div>
+                <div class="msg-body">
+                    <div class="msg-header">
+                        <span class="msg-author">Study Companion</span>
+                        <span class="msg-time">Ready</span>
+                    </div>
+                    <div class="msg-text">
+                        Hello! I am your quiet study companion. I stay out of your way while you study and help break down concepts, suggest revision pacing, or clarify notes when you need me.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ai-drawer-footer">
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="ai-drawer-input" class="form-input" placeholder="Ask a question or request a concept breakdown..." onkeydown="if(event.key==='Enter') sendDrawerChatMessage()">
+                <button class="btn btn-primary" onclick="sendDrawerChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </aside>
 
     <!-- Application Controller JS -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

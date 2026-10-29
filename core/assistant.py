@@ -81,7 +81,7 @@ class StudyAssistant:
         
         # 2. Extract condition and recent readings string block
         if not self.readings:
-            simulated_condition = getattr(self.sensor, "_current_condition", "Information unavailable")
+            simulated_condition = "Awaiting Readings"
             recent_readings_fmt = []
         else:
             simulated_condition = self.readings[-1].condition_label
@@ -89,7 +89,7 @@ class StudyAssistant:
             recent_slice = self.readings[-5:]
             recent_readings_fmt = [
                 f"Time: {time.strftime('%H:%M:%S', time.localtime(r.timestamp))} | "
-                f"BPM: {r.bpm:.1f} | Condition: {r.condition_label} [Simulated]"
+                f"BPM: {r.bpm:.1f} | Condition: {r.condition_label}"
                 for r in recent_slice
             ]
 

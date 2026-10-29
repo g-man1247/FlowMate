@@ -1471,6 +1471,46 @@ body {
 /* --- 14. RESPONSIVE BREAKPOINTS --- */
 .mobile-only { display: none !important; }
 
+/* Sensor control group (monitor tab header) */
+.sensor-control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+/* Sensor state badge */
+.sensor-state-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.8rem;
+    border-radius: var(--radius-full);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-color);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    transition: var(--transition);
+}
+.sensor-state-badge[data-state="CONNECTED"]    { border-color: var(--success); color: var(--success); background: var(--success-light); }
+.sensor-state-badge[data-state="MEASURING"]    { border-color: var(--danger);  color: var(--danger);  background: var(--danger-light); animation: pulseBadge 1.4s ease-in-out infinite; }
+.sensor-state-badge[data-state="CONNECTING"]   { border-color: var(--warning); color: var(--warning); background: var(--warning-light); }
+.sensor-state-badge[data-state="ERROR"]        { border-color: var(--danger);  color: var(--danger);  background: var(--danger-light); }
+.sensor-state-badge[data-state="DISCONNECTED"] { border-color: var(--border-color); color: var(--text-muted); }
+
+@keyframes pulseBadge {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.55; }
+}
+
+/* 4-tier stress level color helpers */
+.stress-low      { color: var(--success) !important; }
+.stress-normal   { color: var(--info) !important; }
+.stress-elevated { color: var(--warning) !important; }
+.stress-high     { color: var(--danger) !important; }
+
 @media (max-width: 1024px) {
     .content-grid-2col {
         grid-template-columns: 1fr;
@@ -1480,7 +1520,8 @@ body {
 @media (max-width: 768px) {
     .mobile-only { display: flex !important; }
     .btn-text { display: none; }
-    
+
+    /* Sidebar slides in from left on mobile */
     .sidebar {
         position: fixed;
         left: -100%;
@@ -1499,6 +1540,7 @@ body {
         padding-bottom: 5rem;
     }
 
+    /* Bottom nav for phone */
     .bottom-nav {
         position: fixed;
         bottom: 0;
@@ -1533,5 +1575,141 @@ body {
 
     .bottom-nav-item i {
         font-size: 1.1rem;
+    }
+
+    /* No horizontal scrolling on any mobile element */
+    .app-layout,
+    .main-content,
+    .tab-page,
+    .card,
+    .metrics-grid,
+    .session-telemetry-grid,
+    .content-grid-2col {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Page header stacks on mobile */
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .quick-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    /* Metrics grid: 2 columns on phone */
+    .metrics-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.65rem;
+    }
+
+    /* Session telemetry pills: 2-column on phone */
+    .session-telemetry-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.65rem;
+    }
+
+    /* Pomodoro presets: wrap */
+    .pomodoro-presets-bar {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* Session control bar: full-width stacked */
+    .session-control-bar {
+        flex-direction: column;
+        gap: 0.6rem;
+        width: 100%;
+    }
+
+    .session-control-bar .btn {
+        width: 100%;
+        min-height: 52px;
+        font-size: 1rem;
+        justify-content: center;
+    }
+
+    /* Sensor control group wraps on phone */
+    .sensor-control-group {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .sensor-control-group .btn {
+        flex: 1;
+        min-width: 130px;
+        min-height: 46px;
+        font-size: 0.9rem;
+    }
+
+    /* Hero timer font scale down on phone */
+    .hero-timer-text {
+        font-size: clamp(2rem, 10vw, 3.5rem);
+    }
+
+    /* Dashboard quick actions wrap */
+    .dashboard-quick-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    /* Header: hide disclaimer chip on narrow screens */
+    .header-center {
+        display: none;
+    }
+
+    /* Compact header on mobile */
+    .top-header {
+        padding: 0 0.75rem;
+    }
+
+    /* Toast smaller on phone */
+    .toast-container {
+        bottom: 4.5rem;
+        right: 0.75rem;
+        left: 0.75rem;
+    }
+
+    .toast {
+        min-width: unset;
+        width: 100%;
+    }
+
+    /* Modal full-width on phone */
+    .modal-content {
+        max-width: 100%;
+        margin: 0 0.75rem;
+    }
+
+    /* Chart cards don't overflow */
+    .chart-container {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+/* Extra-small (< 480px) — very narrow phones */
+@media (max-width: 480px) {
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .session-telemetry-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .radial-timer-container .timer-display,
+    .hero-timer-text {
+        font-size: 2.2rem;
+    }
+
+    .sensor-state-badge {
+        font-size: 0.68rem;
+        padding: 0.25rem 0.6rem;
     }
 }

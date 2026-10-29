@@ -80,9 +80,15 @@ def calculate_session_statistics(readings: List[HeartRateReading]) -> SessionSta
 
 def calculate_stress_estimate(readings: List[HeartRateReading]) -> Dict[str, Any]:
     """
-    Transparent, non-medical stress estimation based strictly on real smart watch heart-rate data.
+    Transparent, non-medical stress estimation based strictly on real smartwatch heart-rate data.
     Requires at least 3 valid readings to establish a baseline.
     Never fabricates physiological measurements.
+
+    Stress tiers (non-medical academic context only):
+      LOW      — resting / calm state
+      NORMAL   — active cognitive engagement, expected during study
+      ELEVATED — above-average sustained HR, consider a short break
+      HIGH     — significantly elevated HR, break recommended
     """
     real_readings = [r for r in readings if not r.is_simulated]
 
@@ -90,7 +96,7 @@ def calculate_stress_estimate(readings: List[HeartRateReading]) -> Dict[str, Any
         return {
             "level": "Collecting data...",
             "score_pct": 0,
-            "explanation": "Awaiting at least 3 real smart watch heart-rate samples.",
+            "explanation": "Awaiting at least 3 real smartwatch heart-rate samples.",
             "is_valid": False
         }
 
@@ -99,24 +105,27 @@ def calculate_stress_estimate(readings: List[HeartRateReading]) -> Dict[str, Any
     rolling_avg = sum(r.bpm for r in recent) / len(recent)
     delta = latest_bpm - rolling_avg
 
-    # Base scale: 60 BPM = 20% stress score, 100 BPM = 80% stress score
-    raw_score = ((rolling_avg - 60.0) / 40.0) * 60.0 + 20.0
+    # Base scale: 55 BPM → 10%, 100 BPM → 85%
+    raw_score = ((rolling_avg - 55.0) / 45.0) * 75.0 + 10.0
 
-    # Short-term surge penalty
-    if delta > 2.0:
-        raw_score += (delta - 2.0) * 2.5
+    # Short-term surge penalty (sustained spike above rolling avg)
+    if delta > 3.0:
+        raw_score += (delta - 3.0) * 2.0
 
-    stress_pct = max(10, min(95, int(raw_score)))
+    stress_pct = max(5, min(95, int(raw_score)))
 
-    if stress_pct < 45 or latest_bpm < 75.0:
-        level = "Low"
-        explanation = f"Heart rate steady (Avg: {rolling_avg:.1f} BPM). Calm focus state."
-    elif stress_pct < 75 or latest_bpm < 92.0:
-        level = "Moderate"
-        explanation = f"Active cognitive engagement (Avg: {rolling_avg:.1f} BPM, Latest: {latest_bpm:.1f} BPM)."
+    if stress_pct < 30 or latest_bpm < 68.0:
+        level = "LOW"
+        explanation = f"Resting heart rate (Avg: {rolling_avg:.1f} BPM). Calm, relaxed state."
+    elif stress_pct < 55 or latest_bpm < 85.0:
+        level = "NORMAL"
+        explanation = f"Active study engagement (Avg: {rolling_avg:.1f} BPM, Latest: {latest_bpm:.1f} BPM). Normal cognitive load."
+    elif stress_pct < 75 or latest_bpm < 100.0:
+        level = "ELEVATED"
+        explanation = f"Above-average heart rate (Latest: {latest_bpm:.1f} BPM vs Avg: {rolling_avg:.1f} BPM). Consider a short break."
     else:
-        level = "High"
-        explanation = f"Elevated heart rate detected (Latest: {latest_bpm:.1f} BPM vs Avg: {rolling_avg:.1f} BPM). Take a short break."
+        level = "HIGH"
+        explanation = f"Significantly elevated heart rate (Latest: {latest_bpm:.1f} BPM vs Avg: {rolling_avg:.1f} BPM). Break recommended."
 
     return {
         "level": level,

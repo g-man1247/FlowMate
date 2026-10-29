@@ -7,7 +7,7 @@ from config.settings import (
     AI_COACHING_INTERVAL_SEC
 )
 from sensors.simulated import SimulatedHeartRateSensor
-from sensors.camera import CameraFeedPlaceholder
+from sensors.camera import camera_manager
 from ai.ollama_client import OllamaClient
 from core.assistant import StudyAssistant
 
@@ -26,7 +26,7 @@ def main():
 
     # Instantiate simulated sensor & camera placeholder
     sensor = SimulatedHeartRateSensor(initial_condition="DEEP_STUDY")
-    camera_placeholder = CameraFeedPlaceholder()
+    camera_manager.start()
     ollama_client = OllamaClient()
 
     assistant = StudyAssistant(sensor=sensor, ollama_client=ollama_client)

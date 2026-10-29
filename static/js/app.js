@@ -121,32 +121,106 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadNotifications();
     await loadFacultyView();
 
-    // Start Telemetry Stream Polling (every 2 seconds)
-    AppState.telemetryInterval = setInterval(fetchTelemetry, 2000);
+    // Start Telemetry Stream Polling (every 1 second)
+    AppState.telemetryInterval = setInterval(fetchTelemetry, 1000);
 
     // 1-Second Resolution Focus Timer Loop
     setInterval(tickFocusTimer, 1000);
 });
 
-// Theme Management
+// Theme Management — delegates to ThemeManager when available
 function initTheme() {
+    if (typeof ThemeManager !== 'undefined') {
+        // ThemeManager already applied theme via its own init — just sync the icon
+        updateThemeIcon();
+        updateSettingsUI();
+        return;
+    }
+    // Fallback: legacy class-based theme
     document.body.className = AppState.theme === 'light' ? 'theme-light' : 'theme-dark';
     updateThemeIcon();
 }
 
 function toggleTheme() {
-    AppState.theme = AppState.theme === 'light' ? 'dark' : 'light';
-    localStorage.setItem('flowmate_theme', AppState.theme);
-    initTheme();
-    Toast.show(`Switched to ${AppState.theme} theme`, 'info', 2000);
+    if (typeof ThemeManager !== 'undefined') {
+        ThemeManager.toggle();
+        AppState.theme = ThemeManager.getPrefs().mode;
+    } else {
+        AppState.theme = AppState.theme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('flowmate_theme', AppState.theme);
+        document.body.className = AppState.theme === 'light' ? 'theme-light' : 'theme-dark';
+    }
+    updateThemeIcon();
+    updateSettingsUI();
+    Toast.show(`Switched to ${AppState.theme === 'light' ? 'Light' : 'Dark'} mode`, 'info', 2000);
 }
 
 function updateThemeIcon() {
     const icon = document.getElementById('theme-icon');
+    const mode = typeof ThemeManager !== 'undefined' ? ThemeManager.getPrefs().mode : AppState.theme;
     if (icon) {
-        icon.className = AppState.theme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        icon.className = mode === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
     }
 }
+
+function updateSettingsUI() {
+    if (typeof ThemeManager === 'undefined') return;
+    const prefs = ThemeManager.getPrefs();
+
+    // Highlight active theme card
+    document.querySelectorAll('[data-theme-select]').forEach(card => {
+        const isActive = card.getAttribute('data-theme-select') === prefs.theme;
+        card.classList.toggle('active', isActive);
+    });
+
+    // Highlight active mode button
+    ['dark', 'light'].forEach(m => {
+        const btn = document.getElementById(`mode-btn-${m}`);
+        if (btn) btn.classList.toggle('active', m === prefs.mode);
+    });
+
+    // Highlight active wallpaper button
+    [1, 2].forEach(w => {
+        const btn = document.getElementById(`wp-btn-${w}`);
+        if (btn) btn.classList.toggle('active', w === prefs.wallpaper);
+    });
+
+    // Update wallpaper names from ThemeManager metadata
+    if (ThemeManager.wallpapers && ThemeManager.wallpapers[prefs.theme]) {
+        const wps = ThemeManager.wallpapers[prefs.theme];
+        const name1 = document.getElementById('wp-name-1');
+        const name2 = document.getElementById('wp-name-2');
+        if (name1 && wps[0]) name1.textContent = wps[0].name;
+        if (name2 && wps[1]) name2.textContent = wps[1].name;
+    }
+
+    const blurSlider = document.getElementById('wp-blur-slider');
+    const blurVal = document.getElementById('wp-blur-val');
+    if (blurSlider && prefs.blur !== undefined) {
+        blurSlider.value = prefs.blur;
+        if (blurVal) blurVal.textContent = prefs.blur + 'px';
+    }
+
+    const dimSlider = document.getElementById('wp-dim-slider');
+    const dimVal = document.getElementById('wp-dim-val');
+    if (dimSlider && prefs.dim !== undefined) {
+        dimSlider.value = prefs.dim;
+        if (dimVal) dimVal.textContent = prefs.dim + '%';
+    }
+
+    if (prefs.glass) updateGlassUI(prefs.glass);
+
+    const solidToggle = document.getElementById('wp-solid-toggle');
+    if (solidToggle && prefs.solidColor !== undefined) {
+        solidToggle.checked = Boolean(prefs.solidColor);
+    }
+}
+
+// Listen for ThemeManager change events
+document.addEventListener('flowmate:themechange', () => {
+    updateThemeIcon();
+    updateSettingsUI();
+});
 
 // Navigation & Tab Switching
 function initTabNavigation() {
@@ -430,18 +504,20 @@ function updateUIWithStatus(data) {
             statusBadge.innerText = isSessionActive ? 'ACTIVE SESSION' : (data.session.state || 'IDLE');
             statusBadge.className = isSessionActive ? 'badge badge-primary' : 'badge badge-secondary';
         }
+        renderAdaptiveDashboard(data.session);
     }
 
     // 3. Sensor Status & Source Badges
     if (data.sensor) {
-        const modeText = `${data.sensor.mode} MODE`;
+        const modeText = `SMARTWATCH BLE`;
         const modeBadge = document.getElementById('dash-sensor-mode');
         if (modeBadge) modeBadge.innerText = modeText;
 
-        const devName = data.sensor.device_name || 'Smart Watch';
+        const devName = 'Smartwatch';
         const isConn = data.sensor.connected && data.sensor.bpm !== null && data.sensor.bpm !== undefined;
-        const liveBpmText = isConn ? `${Math.round(data.sensor.bpm)} BPM` : '-- BPM';
-        const statusText = data.sensor.connected ? `🟢 Smart Watch Connected (${devName})` : '🔴 Smart Watch Disconnected';
+        const liveBpmText = isConn ? `❤️ ${Math.round(data.sensor.bpm)} BPM` : '-- BPM';
+        const batteryText = data.sensor.battery !== null && data.sensor.battery !== undefined ? ` (🔋 ${data.sensor.battery}%)` : '';
+        const statusText = data.sensor.connected ? `🟢 Smartwatch Connected${batteryText}` : '🔴 Smartwatch Disconnected';
 
         const headerText = document.getElementById('header-sensor-text');
         if (headerText) headerText.innerText = statusText;
@@ -459,26 +535,55 @@ function updateUIWithStatus(data) {
         if (matrixDevice) matrixDevice.innerText = `Source: ${devName}${data.sensor.connected ? '' : ' (Disconnected)'}`;
 
         const hwStatusEl = document.getElementById('dash-hw-status');
-        if (hwStatusEl) hwStatusEl.innerText = data.sensor.connected ? '🟢 Smart Watch Connected' : '🔴 Watch Disconnected';
+        if (hwStatusEl) hwStatusEl.innerText = data.sensor.connected ? `🟢 Smartwatch Connected${batteryText}` : '🔴 Smartwatch Disconnected';
 
         const sessionBpmVal = document.getElementById('session-bpm-val');
         if (sessionBpmVal) sessionBpmVal.innerText = liveBpmText;
 
         const sessionDeviceSub = document.getElementById('session-device-sub');
-        if (sessionDeviceSub) sessionDeviceSub.innerText = devName;
+        if (sessionDeviceSub) sessionDeviceSub.innerText = `${devName}${batteryText}`;
 
-        // Stress display updates
+        // --- Sensor State Badge ---
+        const sensorState = data.sensor.sensor_state || (data.sensor.connected ? 'CONNECTED' : 'DISCONNECTED');
+
+        const monitorBadge = document.getElementById('monitor-sensor-state-badge');
+        if (monitorBadge) {
+            monitorBadge.innerText = sensorState;
+            monitorBadge.setAttribute('data-state', sensorState);
+        }
+
+        const sessionStatePill = document.getElementById('session-sensor-state');
+        if (sessionStatePill) {
+            sessionStatePill.innerText = sensorState;
+        }
+
+        // --- 4-Tier Stress Level ---
         if (data.sensor.stress) {
             const stressLevel = data.sensor.stress.level || 'Collecting data...';
 
+            // Map tier to CSS class
+            const stressClassMap = {
+                'LOW':      'stress-low',
+                'NORMAL':   'stress-normal',
+                'ELEVATED': 'stress-elevated',
+                'HIGH':     'stress-high'
+            };
+            const stressCls = stressClassMap[stressLevel] || '';
+
             const dashStressEl = document.getElementById('dash-stress-level');
-            if (dashStressEl) dashStressEl.innerText = stressLevel;
+            if (dashStressEl) {
+                dashStressEl.innerText = stressLevel;
+                dashStressEl.className = stressCls ? `hw-val ${stressCls}` : 'hw-val text-warning';
+            }
 
             const sessionStressEl = document.getElementById('session-stress-level');
-            if (sessionStressEl) sessionStressEl.innerText = stressLevel;
+            if (sessionStressEl) {
+                sessionStressEl.innerText = stressLevel;
+                sessionStressEl.className = stressCls ? `pill-value ${stressCls}` : 'pill-value text-warning';
+            }
 
             const sessionStressSub = document.getElementById('session-stress-sub');
-            if (sessionStressSub) sessionStressSub.innerText = data.sensor.stress.explanation || 'Non-medical Wellness';
+            if (sessionStressSub) sessionStressSub.innerText = data.sensor.stress.explanation || 'Non-medical Stress Tracking';
         }
 
         // Pulse dot animation trigger
@@ -907,18 +1012,12 @@ function appendChatMessage(author, text, msgClass) {
 
 // --- 9. TELEMETRY & SENSOR CONFIGURATION ---
 
-async function setSensorMode(mode) {
+async function setSensorMode(mode = 'SMARTWATCH') {
     try {
-        const data = await API.post('/api/sensor/mode', { mode });
+        const data = await API.post('/api/sensor/mode', { mode: 'SMARTWATCH' });
         if (data.success) {
-            Toast.show(`Sensor source set to ${mode}`, 'info');
-            AppState.sensorMode = mode;
-            
-            // Highlight Mode Buttons in Settings & Monitor
-            document.querySelectorAll('.mode-selector-group .btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.innerText.includes(mode)) btn.classList.add('active');
-            });
+            Toast.show('Smartwatch BLE sensor mode active', 'info');
+            AppState.sensorMode = 'SMARTWATCH';
             await fetchSystemStatus();
         }
     } catch (err) {
@@ -926,22 +1025,36 @@ async function setSensorMode(mode) {
     }
 }
 
-async function setSimulatedCondition(condition) {
+async function startHeartRateMeasurement() {
     try {
-        const data = await API.post('/api/sensor/condition', { condition });
+        const data = await API.post('/api/sensor/start');
         if (data.success) {
-            Toast.show(`Simulated condition profile set to ${condition.replace(/_/g, ' ')}`, 'info');
-            AppState.simulatedCondition = condition;
-
-            document.querySelectorAll('.condition-btn-grid .btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.innerText.includes(condition.replace(/_/g, ' '))) btn.classList.add('active');
-            });
+            Toast.show(data.message || 'Heart-rate measurement started', 'success');
+            if (data.limitation_note) {
+                console.info('[BLE Note]', data.limitation_note);
+            }
             await fetchSystemStatus();
         }
     } catch (err) {
-        Toast.show(`Failed to set condition: ${err.message}`, 'error');
+        Toast.show(`Cannot start measurement: ${err.message}`, 'error');
     }
+}
+
+async function stopHeartRateMeasurement() {
+    try {
+        const data = await API.post('/api/sensor/stop');
+        if (data.success) {
+            Toast.show(data.message || 'Heart-rate measurement stopped', 'info');
+            await fetchSystemStatus();
+        }
+    } catch (err) {
+        Toast.show(`Cannot stop measurement: ${err.message}`, 'error');
+    }
+}
+
+// Legacy alias kept for backward compatibility (measure button on old pages)
+async function triggerHeartRateMeasurement() {
+    return startHeartRateMeasurement();
 }
 
 async function runHardwareDiagnostic() {
@@ -1520,3 +1633,320 @@ function switchCameraSource() {
     }
 }
 
+
+
+// ==========================================================================
+// FLOWMATE — ADAPTIVE DASHBOARD, READING WORKSPACE & PRODUCT CONTROLS
+// ==========================================================================
+
+// Global Adaptive Dashboard State
+let currentDashboardState = 'IDLE'; // 'IDLE' | 'ACTIVE' | 'BREAK' | 'COMPLETED'
+let breakCountdownInterval = null;
+let breakSecondsRemaining = 300; // 5 minutes default
+
+/**
+ * Render the adaptive dashboard view based on current state
+ */
+function renderAdaptiveDashboard(sessionData) {
+    const idleEl = document.getElementById('dash-state-idle');
+    const activeEl = document.getElementById('dash-state-active');
+    const breakEl = document.getElementById('dash-state-break');
+    const completedEl = document.getElementById('dash-state-completed');
+    const actionText = document.getElementById('dash-main-action-text');
+
+    if (!idleEl || !activeEl) return;
+
+    let targetState = currentDashboardState;
+    if (sessionData) {
+        if (sessionData.active && (sessionData.state === 'ACTIVE' || sessionData.state === 'PAUSED')) {
+            if (currentDashboardState !== 'BREAK' && currentDashboardState !== 'COMPLETED') {
+                targetState = 'ACTIVE';
+            }
+        } else if (!sessionData.active && currentDashboardState === 'ACTIVE') {
+            targetState = 'COMPLETED';
+        } else if (!sessionData.active && currentDashboardState !== 'COMPLETED') {
+            targetState = 'IDLE';
+        }
+    }
+
+    currentDashboardState = targetState;
+
+    if (idleEl) idleEl.style.display = targetState === 'IDLE' ? 'block' : 'none';
+    if (activeEl) activeEl.style.display = targetState === 'ACTIVE' ? 'block' : 'none';
+    if (breakEl) breakEl.style.display = targetState === 'BREAK' ? 'block' : 'none';
+    if (completedEl) completedEl.style.display = targetState === 'COMPLETED' ? 'block' : 'none';
+
+    if (actionText) {
+        if (targetState === 'ACTIVE') actionText.textContent = 'View Active Session';
+        else if (targetState === 'BREAK') actionText.textContent = 'Resume Study Session';
+        else actionText.textContent = 'Start Focus Session';
+    }
+}
+
+function startOrResumeSession() {
+    if (currentDashboardState === 'ACTIVE') {
+        switchTab('session');
+    } else if (currentDashboardState === 'BREAK') {
+        resumeFromBreak();
+    } else {
+        startIntentionSession();
+    }
+}
+
+async function startIntentionSession() {
+    const input = document.getElementById('dash-intention-input');
+    const taskTitle = input && input.value.trim() ? input.value.trim() : 'Core Academic Study';
+    const subject = 'Focused Work';
+
+    try {
+        const data = await API.post('/api/session/start', { subject, task: taskTitle });
+        if (data.success) {
+            Toast.show(`Focus started: "${taskTitle}"`, 'success');
+            currentDashboardState = 'ACTIVE';
+            await fetchSystemStatus();
+            renderAdaptiveDashboard(data.session);
+        }
+    } catch (err) {
+        Toast.show(`Could not start session: ${err.message}`, 'error');
+    }
+}
+
+function selectIntentionDuration(mins) {
+    document.querySelectorAll('.duration-pills-row .chip-selector').forEach(btn => {
+        const isActive = parseInt(btn.getAttribute('data-duration'), 10) === mins;
+        btn.classList.toggle('active', isActive);
+    });
+    setPomodoroPreset(mins);
+}
+
+function selectFocusEnvUI(env) {
+    document.querySelectorAll('.env-pills-row .chip-selector').forEach(btn => {
+        const isActive = btn.getAttribute('data-env') === env;
+        btn.classList.toggle('active', isActive);
+    });
+    Toast.show(`Focus environment set to ${env.replace('-', ' ')}`, 'info', 1500);
+}
+
+function triggerSessionBreak() {
+    currentDashboardState = 'BREAK';
+    breakSecondsRemaining = 300;
+    renderAdaptiveDashboard();
+
+    if (breakCountdownInterval) clearInterval(breakCountdownInterval);
+    breakCountdownInterval = setInterval(() => {
+        breakSecondsRemaining--;
+        const badge = document.getElementById('dash-break-timer-badge');
+        if (badge) {
+            const m = Math.floor(breakSecondsRemaining / 60);
+            const s = breakSecondsRemaining % 60;
+            badge.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+        if (breakSecondsRemaining <= 0) {
+            clearInterval(breakCountdownInterval);
+            Toast.show('Break complete! Ready to return to your study flow.', 'info', 3000);
+        }
+    }, 1000);
+}
+
+function resumeFromBreak() {
+    if (breakCountdownInterval) clearInterval(breakCountdownInterval);
+    currentDashboardState = 'ACTIVE';
+    renderAdaptiveDashboard();
+    Toast.show('Resumed study session flow.', 'success', 2000);
+}
+
+function selectReflectionRating(rating) {
+    document.querySelectorAll('.reflection-rating-group .rating-btn').forEach((btn, idx) => {
+        btn.classList.toggle('active', (idx + 1) === rating);
+    });
+}
+
+function dismissReflectionAndReset() {
+    const note = document.getElementById('reflection-note-input');
+    if (note && note.value.trim()) {
+        Toast.show('Reflection noted and saved to session history.', 'success', 2000);
+        note.value = '';
+    }
+    currentDashboardState = 'IDLE';
+    renderAdaptiveDashboard();
+    loadSessionHistory();
+}
+
+// --------------------------------------------------------------------------
+// DISTRACTION-FREE READING & SCRATCHPAD NOTES WORKSPACE
+// --------------------------------------------------------------------------
+
+function setReadingFontSize(fontSize) {
+    const wrapper = document.getElementById('reading-environment-wrapper');
+    if (wrapper) wrapper.style.setProperty('--reading-font-size', fontSize);
+    localStorage.setItem('fm_reading_font_size', fontSize);
+}
+
+function setReadingTheme(themeName) {
+    const pane = document.getElementById('reading-article-pane');
+    if (!pane) return;
+    pane.classList.remove('reading-theme-sepia', 'reading-theme-night');
+    if (themeName === 'sepia') {
+        pane.style.background = '#fbf0d9';
+        pane.style.color = '#3f3123';
+    } else if (themeName === 'night') {
+        pane.style.background = '#141820';
+        pane.style.color = '#e2e8f0';
+    } else {
+        pane.style.background = '';
+        pane.style.color = '';
+    }
+    localStorage.setItem('fm_reading_theme', themeName);
+}
+
+function saveScratchpadNotes() {
+    const textarea = document.getElementById('reading-scratchpad');
+    if (!textarea) return;
+    const text = textarea.value;
+    localStorage.setItem('fm_reading_notes', text);
+
+    const countEl = document.getElementById('notes-word-count');
+    if (countEl) {
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        countEl.textContent = `${words} words`;
+    }
+}
+
+function loadScratchpadNotes() {
+    const textarea = document.getElementById('reading-scratchpad');
+    if (!textarea) return;
+    const saved = localStorage.getItem('fm_reading_notes') || '';
+    textarea.value = saved;
+    const countEl = document.getElementById('notes-word-count');
+    if (countEl) {
+        const words = saved.trim() ? saved.trim().split(/\s+/).length : 0;
+        countEl.textContent = `${words} words`;
+    }
+
+    const savedSize = localStorage.getItem('fm_reading_font_size');
+    if (savedSize) setReadingFontSize(savedSize);
+}
+
+function clearScratchpadNotes() {
+    const textarea = document.getElementById('reading-scratchpad');
+    if (textarea) {
+        textarea.value = '';
+        saveScratchpadNotes();
+        Toast.show('Scratchpad notes cleared', 'info', 1500);
+    }
+}
+
+// --------------------------------------------------------------------------
+// SENSORS & PRIVACY CONTROLS
+// --------------------------------------------------------------------------
+
+function toggleSensorPrivacy(sensorType, isEnabled) {
+    if (sensorType === 'hr') {
+        Toast.show(isEnabled ? 'Smartwatch BLE streaming enabled' : 'Smartwatch BLE telemetry paused', 'info', 2000);
+    } else if (sensorType === 'camera') {
+        Toast.show(isEnabled ? 'OpenCV vision presence companion enabled' : 'Camera presence analysis paused', 'info', 2000);
+    }
+}
+
+// --------------------------------------------------------------------------
+// ATMOSPHERE & WALLPAPER CONTROLS (CUSTOM UPLOAD, BLUR, DIM, GLASS)
+// --------------------------------------------------------------------------
+
+function updateGlassUI(intensity) {
+    ['subtle', 'balanced', 'pronounced'].forEach(level => {
+        const btn = document.getElementById(`glass-btn-${level}`);
+        if (btn) btn.classList.toggle('active', level === intensity);
+    });
+}
+
+function handleCustomWallpaperUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        Toast.show('Please select a valid image file', 'warning');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        ThemeManager.setCustomWallpaper(dataUrl);
+        Toast.show('Custom atmospheric wallpaper applied!', 'success', 2500);
+    };
+    reader.readAsDataURL(file);
+}
+
+// --------------------------------------------------------------------------
+// CONTEXTUAL QUIET AI STUDY COMPANION DRAWER
+// --------------------------------------------------------------------------
+
+function toggleAICoachDrawer() {
+    const drawer = document.getElementById('ai-coach-drawer');
+    if (drawer) drawer.classList.toggle('open');
+}
+
+async function sendDrawerChatMessage() {
+    const input = document.getElementById('ai-drawer-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+
+    const container = document.getElementById('ai-drawer-messages');
+    if (!container) return;
+
+    // Append student bubble
+    const userBubble = document.createElement('div');
+    userBubble.className = 'chat-msg user-msg';
+    userBubble.innerHTML = `
+        <div class="msg-avatar"><i class="fa-solid fa-user"></i></div>
+        <div class="msg-body">
+            <div class="msg-header"><span class="msg-author">${AppState.user ? AppState.user.name : 'Student'}</span><span class="msg-time">Just now</span></div>
+            <div class="msg-text">${escapeHTML(text)}</div>
+        </div>
+    `;
+    container.appendChild(userBubble);
+
+    // Thinking bubble
+    const thinkingBubble = document.createElement('div');
+    thinkingBubble.className = 'chat-msg coach-msg';
+    thinkingBubble.id = 'drawer-thinking-msg';
+    thinkingBubble.innerHTML = `
+        <div class="msg-avatar"><i class="fa-solid fa-robot"></i></div>
+        <div class="msg-body"><div class="msg-header"><span class="msg-author">Study Companion</span></div><div class="msg-text">Thinking...</div></div>
+    `;
+    container.appendChild(thinkingBubble);
+    container.scrollTop = container.scrollHeight;
+
+    try {
+        const data = await API.post('/api/coach', { prompt: text });
+        thinkingBubble.remove();
+
+        const responseBubble = document.createElement('div');
+        responseBubble.className = 'chat-msg coach-msg';
+        responseBubble.innerHTML = `
+            <div class="msg-avatar"><i class="fa-solid fa-robot"></i></div>
+            <div class="msg-body">
+                <div class="msg-header"><span class="msg-author">Study Companion</span><span class="msg-time">Just now</span></div>
+                <div class="msg-text">${escapeHTML(data.response || 'No response')}</div>
+            </div>
+        `;
+        container.appendChild(responseBubble);
+    } catch (err) {
+        thinkingBubble.remove();
+        const errBubble = document.createElement('div');
+        errBubble.className = 'chat-msg coach-msg';
+        errBubble.innerHTML = `
+            <div class="msg-avatar"><i class="fa-solid fa-robot text-warning"></i></div>
+            <div class="msg-body"><div class="msg-header"><span class="msg-author">Study Companion</span></div><div class="msg-text text-muted">Offline companion. Ensure Ollama is running locally ('ollama serve').</div></div>
+        `;
+        container.appendChild(errBubble);
+    }
+    container.scrollTop = container.scrollHeight;
+}
+
+// Hook into initial DOM load for scratchpad notes and adaptive dashboard
+document.addEventListener('DOMContentLoaded', () => {
+    loadScratchpadNotes();
+});

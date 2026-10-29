@@ -2,13 +2,12 @@ import os
 import json
 import time
 from pathlib import Path
+from typing import Optional
 from flask import Flask, render_template, jsonify, request, session, Response
 from flask_cors import CORS
 
 from config.settings import SESSIONS_DIR, DISCLAIMER_TEXT, DEFAULT_OLLAMA_MODEL
-from sensors.simulated import SimulatedHeartRateSensor
-from sensors.ble_esp32 import ESP32BluetoothHeartRateSensor
-from sensors.boult_sensor import BoultHeartRateSensor
+from sensors.boult_sensor import BoultHeartRateSensor, SensorState
 from sensors.camera import camera_manager
 from sensors.health import HardwareHealthChecker
 from ai.ollama_client import OllamaClient
@@ -23,11 +22,9 @@ CORS(app)
 # Application State Container
 class AppState:
     def __init__(self):
-        self.sensor_mode = "BOULT"  # "BOULT", "HARDWARE", "SIMULATION", "AUTO"
-        self.simulated_sensor = SimulatedHeartRateSensor(initial_condition="DEEP_STUDY")
-        self.hardware_sensor = ESP32BluetoothHeartRateSensor()
-        self.boult_sensor = BoultHeartRateSensor()
-        self.active_sensor = self.boult_sensor
+        self.sensor_mode = "SMARTWATCH"
+        self.smartwatch_sensor = BoultHeartRateSensor()
+        self.active_sensor = self.smartwatch_sensor
         
         self.ollama_client = OllamaClient()
         self.assistant = StudyAssistant(sensor=self.active_sensor, ollama_client=self.ollama_client)
@@ -36,31 +33,13 @@ class AppState:
         self.current_subject = "Mathematics"
         self.current_task = "Calculus - Integration"
 
-    def set_sensor_mode(self, mode: str):
-        mode = mode.upper()
-        if mode in ["SIMULATION", "HARDWARE", "AUTO", "BOULT"]:
-            self.sensor_mode = mode
-            if mode == "BOULT":
-                self.boult_sensor.connect()
-                self.active_sensor = self.boult_sensor
-            elif mode == "HARDWARE":
-                self.hardware_sensor.connect()
-                self.active_sensor = self.hardware_sensor
-            elif mode == "SIMULATION":
-                self.simulated_sensor.connect()
-                self.active_sensor = self.simulated_sensor
-            elif mode == "AUTO":
-                if self.boult_sensor.is_connected():
-                    self.active_sensor = self.boult_sensor
-                elif self.hardware_sensor.is_connected():
-                    self.active_sensor = self.hardware_sensor
-                else:
-                    self.simulated_sensor.connect()
-                    self.active_sensor = self.simulated_sensor
-            
-            self.assistant.sensor = self.active_sensor
-            return True
-        return False
+    def set_sensor_mode(self, mode: str = "SMARTWATCH"):
+        self.sensor_mode = "SMARTWATCH"
+        if not self.smartwatch_sensor.is_connected():
+            self.smartwatch_sensor.connect()
+        self.active_sensor = self.smartwatch_sensor
+        self.assistant.sensor = self.active_sensor
+        return True
 
     def compute_focus_status(self, bpm: Optional[float], condition: str):
         if self.session_state == "IDLE":
@@ -86,7 +65,7 @@ class AppState:
 
 
 state = AppState()
-state.boult_sensor.connect()
+state.smartwatch_sensor.connect()
 
 # Active logged in user roll no (default Arun 2026101)
 DEFAULT_ROLL_NO = "2026101"
@@ -231,6 +210,7 @@ def get_status():
     is_connected = state.active_sensor.is_connected()
     device_name = state.active_sensor.get_device_name()
     battery = getattr(state.active_sensor, "get_battery", lambda: None)()
+    sensor_state = getattr(state.active_sensor, "get_sensor_state", lambda: SensorState.DISCONNECTED)()
 
     if is_connected and reading:
         bpm = reading.bpm
@@ -265,6 +245,7 @@ def get_status():
         "sensor": {
             "mode": state.sensor_mode,
             "connected": is_connected,
+            "sensor_state": sensor_state.value if isinstance(sensor_state, SensorState) else str(sensor_state),
             "device_name": device_name,
             "battery": battery,
             "condition": cond,
@@ -332,6 +313,7 @@ def sensor_read():
     is_connected = state.active_sensor.is_connected()
     device = state.active_sensor.get_device_name()
     battery = getattr(state.active_sensor, "get_battery", lambda: None)()
+    sensor_state = getattr(state.active_sensor, "get_sensor_state", lambda: SensorState.DISCONNECTED)()
 
     if is_connected and reading:
         bpm = reading.bpm
@@ -348,6 +330,7 @@ def sensor_read():
     return jsonify({
         "timestamp": time.time(),
         "connected": is_connected,
+        "sensor_state": sensor_state.value if isinstance(sensor_state, SensorState) else str(sensor_state),
         "bpm": bpm,
         "battery": battery,
         "condition": cond,
@@ -360,22 +343,103 @@ def sensor_read():
     })
 
 
-@app.route("/api/sensor/condition", methods=["POST"])
-def set_condition():
+@app.route("/api/sensor/start", methods=["POST"])
+def sensor_start():
+    """
+    Explicitly start a FlowMate heart-rate monitoring session.
+    Transitions the sensor state to MEASURING.
+    NOTE: This does NOT command the physical watch screen — BLE vendor commands
+    for screen control are not publicly documented for the Boult Watch SH.
+    The watch delivers heart-rate BLE notifications continuously once paired.
+    """
+    is_connected = state.active_sensor.is_connected()
+    if not is_connected:
+        return jsonify({
+            "success": False,
+            "error": "Smartwatch not connected. Ensure the watch is nearby and powered on.",
+            "sensor_state": "DISCONNECTED"
+        }), 400
+
+    started = getattr(state.active_sensor, "start_measurement", lambda: False)()
+    sensor_state = getattr(state.active_sensor, "get_sensor_state", lambda: SensorState.CONNECTED)()
+    reading = state.active_sensor.get_reading()
+
+    return jsonify({
+        "success": started,
+        "sensor_state": sensor_state.value if isinstance(sensor_state, SensorState) else str(sensor_state),
+        "bpm": reading.bpm if reading else None,
+        "battery": getattr(state.active_sensor, "get_battery", lambda: None)(),
+        "message": "Heart-rate measurement session started. Receiving live BLE notifications from smartwatch.",
+        "limitation_note": (
+            "Watch screen control is not available through the BLE interface. "
+            "Vendor-specific characteristics for the Boult Watch SH are not publicly documented."
+        )
+    })
+
+
+@app.route("/api/sensor/stop", methods=["POST"])
+def sensor_stop():
+    """
+    Stop the FlowMate heart-rate monitoring session.
+    Transitions sensor state from MEASURING back to CONNECTED.
+    BLE link to the watch remains active.
+    """
+    stopped = getattr(state.active_sensor, "stop_measurement", lambda: True)()
+    sensor_state = getattr(state.active_sensor, "get_sensor_state", lambda: SensorState.CONNECTED)()
+
+    return jsonify({
+        "success": stopped,
+        "sensor_state": sensor_state.value if isinstance(sensor_state, SensorState) else str(sensor_state),
+        "message": "Heart-rate measurement session stopped. Smartwatch BLE link remains active."
+    })
+
+
+
+
+@app.route("/api/preferences", methods=["GET"])
+def get_preferences():
+    """Return the user's saved UI theme preferences."""
+    prefs = session.get("ui_prefs", {
+        "theme": "abstract",
+        "mode": "dark",
+        "wallpaper": 1
+    })
+    return jsonify({"success": True, "preferences": prefs})
+
+
+@app.route("/api/preferences", methods=["POST"])
+def save_preferences():
+    """Persist the user's UI theme preferences (theme, mode, wallpaper)."""
     data = request.json or {}
-    condition = data.get("condition", "DEEP_STUDY")
-    
-    success = state.simulated_sensor.set_condition(condition)
-    return jsonify({"success": success, "condition": condition})
+    prefs = session.get("ui_prefs", {})
+    if "theme" in data and data["theme"] in ("nature", "abstract", "gaming", "synthwave"):
+        prefs["theme"] = data["theme"]
+    if "mode" in data and data["mode"] in ("dark", "light"):
+        prefs["mode"] = data["mode"]
+    if "wallpaper" in data and data["wallpaper"] in (1, 2):
+        prefs["wallpaper"] = data["wallpaper"]
+    session["ui_prefs"] = prefs
+    return jsonify({"success": True, "preferences": prefs})
+
+
+@app.route("/api/sensor/measure", methods=["POST"])
+def trigger_hr_measurement():
+    is_connected = state.active_sensor.is_connected()
+    reading = state.active_sensor.get_reading() if is_connected else None
+    return jsonify({
+        "success": True,
+        "connected": is_connected,
+        "bpm": reading.bpm if reading else None,
+        "battery": getattr(state.active_sensor, "get_battery", lambda: None)(),
+        "message": "Heart-rate measurement active. Listening to smartwatch BLE notifications.",
+        "limitation_note": "Watch screen control is not available through the currently exposed BLE interface."
+    })
 
 
 @app.route("/api/sensor/mode", methods=["POST"])
 def set_sensor_mode():
-    data = request.json or {}
-    mode = data.get("mode", "SIMULATION")
-    
-    success = state.set_sensor_mode(mode)
-    return jsonify({"success": success, "mode": state.sensor_mode})
+    success = state.set_sensor_mode("SMARTWATCH")
+    return jsonify({"success": success, "mode": "SMARTWATCH"})
 
 
 @app.route("/api/coach", methods=["POST"])
@@ -486,7 +550,7 @@ def get_faculty_students():
             "session_minutes": 48,
             "activity_level": "High",
             "today_progress": "1h 45m / 3h 00m",
-            "sensor_status": "Connected (Simulated)",
+            "sensor_status": "Smartwatch BLE Connected",
             "alerts": []
         },
         {
@@ -499,7 +563,7 @@ def get_faculty_students():
             "session_minutes": 25,
             "activity_level": "Normal",
             "today_progress": "2h 10m / 2h 30m",
-            "sensor_status": "Connected (Hardware)",
+            "sensor_status": "Smartwatch BLE Connected",
             "alerts": []
         },
         {
@@ -512,7 +576,7 @@ def get_faculty_students():
             "session_minutes": 42,
             "activity_level": "Low",
             "today_progress": "0h 45m / 2h 00m",
-            "sensor_status": "Connected (Simulated)",
+            "sensor_status": "Smartwatch BLE Connected",
             "alerts": ["⚠ Low Activity Detected (10m)"]
         }
     ]

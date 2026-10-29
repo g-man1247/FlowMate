@@ -7,3 +7,5 @@ env/
 data/sessions/
 .vscode/
 .idea/
+
+update_index_html.py

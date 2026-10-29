@@ -1,4 +1,5 @@
 import asyncio
+import enum
 import sys
 import time
 import threading
@@ -21,6 +22,21 @@ DEFAULT_WATCH_NAME = "Boult Watch SH"
 OBSERVED_MAC_ADDRESS = "3A:E3:6A:D3:09:D5"
 
 
+class SensorState(str, enum.Enum):
+    """
+    FlowMate-side sensor state machine.
+    The watch delivers BLE heart-rate notifications continuously once connected;
+    MEASURING indicates that a FlowMate session has explicitly requested tracking.
+    NOTE: We cannot command the physical watch screen via BLE; this state is
+    tracked entirely on the FlowMate server side.
+    """
+    DISCONNECTED = "DISCONNECTED"
+    CONNECTING   = "CONNECTING"
+    CONNECTED    = "CONNECTED"
+    MEASURING    = "MEASURING"
+    ERROR        = "ERROR"
+
+
 class BoultHeartRateSensor(BaseHeartRateSensor):
     """
     Real BLE heart-rate sensor integrating the Boult Watch SH (firmware MOY-V904-2.0.0).
@@ -36,7 +52,7 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
     ):
         self._target_name = target_name
         self._target_address = target_address
-        self._device_name = target_name
+        self._device_name = "Smartwatch"
         self.auto_reconnect = auto_reconnect
 
         self.client: Optional[BleakClient] = None
@@ -46,6 +62,11 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
         self._latest_bpm: Optional[float] = None
         self._latest_timestamp: Optional[float] = None
         self._battery: Optional[int] = None
+
+        # FlowMate-side sensor state machine
+        self._sensor_state: SensorState = SensorState.DISCONNECTED
+        # Whether FlowMate has explicitly started a measurement session
+        self._measuring: bool = False
 
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
@@ -64,6 +85,7 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
         with self._lock:
             if self._connected:
                 return True
+            self._sensor_state = SensorState.CONNECTING
 
         self._stop_event.clear()
 
@@ -125,6 +147,42 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
         with self._lock:
             return self._battery
 
+    def get_sensor_state(self) -> SensorState:
+        """Return the current FlowMate-side sensor state."""
+        with self._lock:
+            return self._sensor_state
+
+    def start_measurement(self) -> bool:
+        """
+        Signal that FlowMate is explicitly starting a heart-rate monitoring session.
+        The BLE watch already delivers notifications passively; this transitions the
+        FlowMate sensor state to MEASURING and is used for UI and logging purposes.
+        NOTE: We cannot command the physical Boult Watch screen via BLE —
+              vendor-specific characteristics are not publicly documented.
+        Returns True if the sensor was connected and state changed, False otherwise.
+        """
+        with self._lock:
+            if not self._connected:
+                return False
+            self._measuring = True
+            self._sensor_state = SensorState.MEASURING
+        print("[INFO] FlowMate HR measurement session STARTED (smartwatch BLE notifications active).")
+        return True
+
+    def stop_measurement(self) -> bool:
+        """
+        Signal that FlowMate is ending the heart-rate monitoring session.
+        Transitions sensor state back to CONNECTED (BLE link remains alive).
+        """
+        with self._lock:
+            self._measuring = False
+            if self._connected:
+                self._sensor_state = SensorState.CONNECTED
+            else:
+                self._sensor_state = SensorState.DISCONNECTED
+        print("[INFO] FlowMate HR measurement session STOPPED.")
+        return True
+
     # ---------------------------------------------------------
     # BACKGROUND ASYNCIO BLE LOOP
     # ---------------------------------------------------------
@@ -143,11 +201,15 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
 
                 with self._lock:
                     self._connected = False
+                    if self._sensor_state not in (SensorState.DISCONNECTED, SensorState.ERROR):
+                        self._sensor_state = SensorState.DISCONNECTED
 
                 if not self.auto_reconnect or self._stop_event.is_set():
                     break
 
                 print("[INFO] Connection closed. Reconnecting in 3 seconds...")
+                with self._lock:
+                    self._sensor_state = SensorState.CONNECTING
                 for _ in range(30):
                     if self._stop_event.is_set():
                         break
@@ -155,6 +217,7 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
         finally:
             with self._lock:
                 self._connected = False
+                self._sensor_state = SensorState.DISCONNECTED
             try:
                 self._loop.close()
             except Exception:
@@ -173,11 +236,11 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
         if isinstance(device_target, BLEDevice):
             device_desc = f"{device_target.name} [{device_target.address}]"
             with self._lock:
-                self._device_name = device_target.name or self._target_name
+                self._device_name = "Smartwatch"
         else:
             device_desc = f"Address {device_target}"
             with self._lock:
-                self._device_name = self._target_name
+                self._device_name = "Smartwatch"
 
         print(f"[OK] Watch target found: {device_desc}")
         print("[INFO] Connecting to Boult Watch...")
@@ -191,20 +254,30 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
             await self.client.connect()
         except BleakDeviceNotFoundError:
             print(f"[WARN] Device {device_desc} not in range or asleep.")
+            with self._lock:
+                self._sensor_state = SensorState.ERROR
             return
         except BleakError as e:
             print(f"[WARN] BLE Connection error: {e}")
+            with self._lock:
+                self._sensor_state = SensorState.ERROR
             return
         except Exception as e:
             print(f"[WARN] Unexpected connection error: {e}")
+            with self._lock:
+                self._sensor_state = SensorState.ERROR
             return
 
         if not self.client.is_connected:
             print("[WARN] Connection failed.")
+            with self._lock:
+                self._sensor_state = SensorState.ERROR
             return
 
         with self._lock:
             self._connected = True
+            # Restore MEASURING state if start_measurement() was called before reconnect
+            self._sensor_state = SensorState.MEASURING if self._measuring else SensorState.CONNECTED
 
         print("[OK] Connected to Boult Watch.")
 
@@ -356,6 +429,7 @@ class BoultHeartRateSensor(BaseHeartRateSensor):
         print("[WARN] Watch disconnected.")
         with self._lock:
             self._connected = False
+            self._sensor_state = SensorState.DISCONNECTED
 
     # ---------------------------------------------------------
     # SENSOR READINGS & CONDITION MAPPING

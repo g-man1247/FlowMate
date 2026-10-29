@@ -26,8 +26,7 @@ class BaseHeartRateSensor(ABC):
     """
     Abstract Base Class for heart rate sensors.
     
-    Allows seamless swapping between simulated sensors and real hardware
-    (such as an ESP32 + MAX30102 over Bluetooth BLE).
+    Provides standard interface for smartwatch heart-rate sensors over Bluetooth BLE.
     """
 
     @abstractmethod

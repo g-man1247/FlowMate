@@ -7,7 +7,7 @@
       "role": "Student",
       "streak_days": 7,
       "goal_minutes": 180,
-      "completed_minutes": 117,
+      "completed_minutes": 118,
       "created_at": 1789905079.1105094
     },
     {
@@ -47,7 +47,7 @@
       "role": "Student",
       "streak_days": 1,
       "goal_minutes": 180,
-      "completed_minutes": 4,
+      "completed_minutes": 5,
       "created_at": 1789913965.0559764
     },
     {
@@ -68,9 +68,9 @@
       "subject": "Mathematics",
       "title": "Calculus - Integration",
       "duration_minutes": 45,
-      "completed_minutes": 0,
-      "status": "NOT_STARTED",
-      "progress_pct": 0,
+      "completed_minutes": 45,
+      "status": "PAUSED",
+      "progress_pct": 100,
       "created_at": 1789905351.0251472
     },
     {
@@ -79,9 +79,9 @@
       "subject": "Physics",
       "title": "Electromagnetism & Waves",
       "duration_minutes": 30,
-      "completed_minutes": 0,
-      "status": "NOT_STARTED",
-      "progress_pct": 0,
+      "completed_minutes": 30,
+      "status": "PAUSED",
+      "progress_pct": 100,
       "created_at": 1789905351.03521
     },
     {
